@@ -1,0 +1,35 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --muted: 214 32% 94%;
+    --muted-foreground: 215 16% 40%;
+    --border: 214 32% 88%;
+    --primary: 192 91% 32%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 239 84% 96%;
+    --accent-foreground: 239 70% 40%;
+  }
+  .dark {
+    --background: 224 40% 7%;
+    --foreground: 210 40% 96%;
+    --card: 223 35% 11%;
+    --card-foreground: 210 40% 96%;
+    --muted: 222 28% 16%;
+    --muted-foreground: 215 20% 70%;
+    --border: 222 25% 20%;
+    --primary: 188 86% 53%;
+    --primary-foreground: 224 40% 7%;
+    --accent: 239 40% 20%;
+    --accent-foreground: 226 100% 88%;
+  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground font-sans antialiased; }
+}
