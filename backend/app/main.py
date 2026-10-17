@@ -1,7 +1,10 @@
 import logging
+import threading
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -10,12 +13,21 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.rag.embeddings import get_embedding_service
 
 settings = get_settings()
 setup_logging(settings.log_level)
 log = logging.getLogger("app")
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Load the embedding model in the background so the first AI request is not slow.
+    threading.Thread(target=lambda: get_embedding_service().warm_up(), daemon=True).start()
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title=settings.app_name,
     version=settings.app_version,
     description="Backend of QalaQuest AI — Discover Astana Your Way.",
@@ -29,6 +41,7 @@ app.add_middleware(
     allow_origins=settings.cors_origin_list,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Error-Code", "Retry-After"],
 )
 
 
@@ -50,21 +63,25 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-def _error(status_code: int, code: str, message: str, details=None) -> JSONResponse:
+def _error(status_code: int, code: str, message: str, details=None, headers=None) -> JSONResponse:
     body = {"error": {"code": code, "message": message}}
     if details is not None:
         body["error"]["details"] = details
-    return JSONResponse(status_code=status_code, content=body)
+    return JSONResponse(status_code=status_code, content=body, headers=headers)
 
 
 @app.exception_handler(StarletteHTTPException)
 async def http_error(_: Request, exc: StarletteHTTPException):
-    return _error(exc.status_code, "http_error", str(exc.detail))
+    # keep headers such as Retry-After and X-Error-Code; the code mirrors X-Error-Code when present
+    code = (exc.headers or {}).get("X-Error-Code", "http_error")
+    return _error(exc.status_code, code, str(exc.detail), headers=exc.headers)
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_error(_: Request, exc: RequestValidationError):
-    return _error(422, "validation_error", "Invalid request", exc.errors())
+    # ctx may hold exception objects (custom validators), which are not JSON serialisable
+    details = jsonable_encoder(exc.errors(), custom_encoder={Exception: str})
+    return _error(422, "validation_error", "Invalid request", details)
 
 
 @app.exception_handler(Exception)

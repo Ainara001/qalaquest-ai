@@ -48,22 +48,22 @@ CATEGORIES: list[str] = list(dict.fromkeys(r.category for r in RULES))
 # Labels are used by the API to let free-text search match a category name.
 # The UI has its own copy in the frontend locale files.
 CATEGORY_LABELS: dict[str, dict[str, str]] = {
-    "attraction": {"ru": "Достопримечательности", "kk": "Көрікті жерлер"},
-    "museum": {"ru": "Музеи", "kk": "Мұражайлар"},
-    "park": {"ru": "Парки и скверы", "kk": "Саябақтар мен скверлер"},
-    "monument": {"ru": "Памятники", "kk": "Ескерткіштер"},
-    "theatre": {"ru": "Театры", "kk": "Театрлар"},
-    "library": {"ru": "Библиотеки", "kk": "Кітапханалар"},
-    "gallery": {"ru": "Галереи", "kk": "Галереялар"},
-    "architecture": {"ru": "Архитектурные объекты", "kk": "Сәулет нысандары"},
-    "viewpoint": {"ru": "Смотровые площадки", "kk": "Көрініс алаңдары"},
-    "cafe": {"ru": "Кафе и кофейни", "kk": "Кафелер мен кофеханалар"},
-    "restaurant": {"ru": "Рестораны", "kk": "Мейрамханалар"},
-    "mall": {"ru": "Торгово-развлекательные центры", "kk": "Сауда-ойын-сауық орталықтары"},
-    "playground": {"ru": "Детские площадки", "kk": "Балалар алаңдары"},
-    "public_space": {"ru": "Общественные пространства", "kk": "Қоғамдық кеңістіктер"},
-    "sports": {"ru": "Спортивные объекты", "kk": "Спорт нысандары"},
-    "promenade": {"ru": "Прогулочные зоны", "kk": "Серуендеу аймақтары"},
+    "attraction": {"ru": "Достопримечательности", "kk": "Көрікті жерлер", "en": "Attractions"},
+    "museum": {"ru": "Музеи", "kk": "Мұражайлар", "en": "Museums"},
+    "park": {"ru": "Парки и скверы", "kk": "Саябақтар мен скверлер", "en": "Parks and gardens"},
+    "monument": {"ru": "Памятники", "kk": "Ескерткіштер", "en": "Monuments and memorials"},
+    "theatre": {"ru": "Театры", "kk": "Театрлар", "en": "Theatres"},
+    "library": {"ru": "Библиотеки", "kk": "Кітапханалар", "en": "Libraries"},
+    "gallery": {"ru": "Галереи", "kk": "Галереялар", "en": "Galleries"},
+    "architecture": {"ru": "Архитектурные объекты", "kk": "Сәулет нысандары", "en": "Architectural landmarks"},
+    "viewpoint": {"ru": "Смотровые площадки", "kk": "Көрініс алаңдары", "en": "Viewpoints"},
+    "cafe": {"ru": "Кафе и кофейни", "kk": "Кафелер мен кофеханалар", "en": "Cafes and coffee shops"},
+    "restaurant": {"ru": "Рестораны", "kk": "Мейрамханалар", "en": "Restaurants"},
+    "mall": {"ru": "Торгово-развлекательные центры", "kk": "Сауда-ойын-сауық орталықтары", "en": "Shopping and entertainment centres"},
+    "playground": {"ru": "Детские площадки", "kk": "Балалар алаңдары", "en": "Playgrounds"},
+    "public_space": {"ru": "Общественные пространства", "kk": "Қоғамдық кеңістіктер", "en": "Public spaces and squares"},
+    "sports": {"ru": "Спортивные объекты", "kk": "Спорт нысандары", "en": "Sports facilities"},
+    "promenade": {"ru": "Прогулочные зоны", "kk": "Серуендеу аймақтары", "en": "Promenades and walking areas"},
 }
 
 

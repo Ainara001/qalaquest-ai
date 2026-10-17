@@ -1,6 +1,6 @@
 # QalaQuest AI — Project status
 
-_Last updated: 2026-10-18_
+_Last updated: 2026-10-18 (stage 3)_
 
 ## Stages
 
@@ -8,8 +8,19 @@ _Last updated: 2026-10-18_
 |---|-------|-------|
 | 1 | Architecture, infrastructure, UI shell | **Done** |
 | 2 | Real POIs of Astana, interactive map, RU/KK UI | **Done** (see "Known issues") |
-| 3 | RAG + AI | Not started |
+| 3 | RAG + AI, mobile-first light UI | **Done except one item**: real Gemini calls were not verified (no API key available) |
 | 4–7 | Personalization, Living Route, Quest, Weather, Group Harmony, Surprise Me, English UI | Not started |
+
+## Stage 3 plan (written before implementation, 2026-10-18)
+
+Audit result: stage 1–2 intact (1030 real POIs, 139 with ru/kk names, pgvector 0.8.7 enabled, no embeddings table yet, no `GEMINI_API_KEY` configured anywhere on this machine).
+
+1. **Index**: migration `0003` (`poi_index`: document, hash, `vector(1024)`, HNSW + tsvector); `EmbeddingService` on `intfloat/multilingual-e5-large` via fastembed/ONNX (covers ru/kk/en); `index_pois` CLI, re-embeds only changed documents.
+2. **Retrieval**: hard filters in SQL (radius, excluded categories, fee, accessibility) → vector + keyword candidates → weighted rerank (semantic, keyword, interest↔category affinity, distance, data completeness) → diversity pick.
+3. **AI layer**: `LLMService` (official `google-genai` SDK, model from config or auto-discovered), structured output with Pydantic, query understanding with session context, `RecommendationService` that validates every POI id and builds cards from database fields only.
+4. **API**: `/api/ai/search` (retrieval only), `/api/ai/recommend`, `/api/ai/chat` with rate limiting, in-flight de-duplication, size limits, privacy-safe logs.
+5. **UI**: light theme default, 4-tab mobile bottom nav (Home, Map, AI guide, Profile), new Home, AI Planner chat with place cards, mobile map with bottom sheet, Profile page; RU/KK for everything.
+6. **Docs + verification**: `RAG_ARCHITECTURE.md`, `MOBILE_UI.md`, README, honest status. Anything that cannot be verified (Gemini without a key) is stated as such.
 
 ## Implemented
 
@@ -38,6 +49,40 @@ FastAPI skeleton (settings, CORS, JSON logs, unified error format, Swagger at `/
 - Home shows real category counts from `/api/pois/stats`, or "Data not loaded yet".
 - The map page is code-split (MapLibre is ~800 kB).
 - User coordinates live only in browser memory (not persisted, not stored server-side; request logs contain only paths).
+
+### Stage 3 — actual results
+
+**Implemented**
+- `EmbeddingService` (`intfloat/multilingual-e5-large`, 1024-d, fastembed/ONNX, local), `poi_index` table (migration `0003`: document, hash, vector with HNSW, full-text vector), `index_pois` CLI (hash-based, skips unchanged, batch errors isolated), `import_pois --index`.
+- Hybrid retrieval: SQL hard filters (radius, categories, fee, accessibility, time budget, exclusions) → vector + keyword + affinity + proximity + data-completeness rerank → diversity pick.
+- `LLMService` (official `google-genai`, structured output, timeout, retry, error mapping, model from config or auto-discovered), query understanding with session context, `RecommendationService` with id and text validation, cards built from DB fields only.
+- `POST /api/ai/search | recommend | chat`, `DELETE /api/ai/chat/{id}`, `GET /api/ai/status`; input limits, per-IP rate limit, double-submit sharing, privacy-safe logs; error codes exposed through CORS.
+- UI: light theme by default, 4-tab bottom navigation with safe-area and keyboard handling, new Home with a real AI input and six quick scenarios, AI guide chat with place cards, map reworked for phones (floating search/chips/actions, bottom sheet, numbered AI pins), Profile (language, theme, session-only interests, clear conversation, geolocation explanation). ComingSoon pages for later stages were removed from the navigation.
+- Docs: [RAG_ARCHITECTURE.md](RAG_ARCHITECTURE.md), [MOBILE_UI.md](MOBILE_UI.md), README.
+
+**Numbers:** 1030 POIs indexed (0 failed; second run skipped 1030); first index run needed ~10 min on CPU after a ~2.2 GB model download; query embedding ≈ 0.2 s; embedding model load ≈ 16 s at backend start.
+
+**Real queries run**
+- Retrieval (`/api/ai/search`, real embeddings, no LLM): "музей истории", "саябақта серуендегім келеді" near Mega Silk Way, "a quiet coffee shop" (interest coffee), "что-нибудь необычное" with free + 60 min (radius 1292 m), 150 m radius, 10 minutes (no candidates), exclude museums.
+- Full chat flow ("Я возле MEGA Silk Way. У меня 60 минут, люблю красивые места и хочу погулять бесплатно", follow-up "Не хочу музеи, предложи что-нибудь другое", Kazakh request, greeting, unknown start place, 5 minutes, tiny radius, invented id/time/price, 3 parallel identical requests) ran against a **local stand-in for the Gemini REST API**, not real Gemini.
+
+**Verified**
+- Backend: migration 0003, pgvector index, embedding + indexing, retrieval filters, validation errors (empty / too long / bad coordinates / session id / category / time → 422), rate limit (429), double submit (1 LLM call for 3 requests), logs free of message text and coordinates, `503` + `X-Error-Code: ai_not_configured` without a key, `ai_auth` with an invalid key against the real Gemini endpoint (network path and error mapping work), guard against invented ids / clock times / prices.
+- Frontend (in-app browser): production build; Home, Guide, Map, Profile on a 375 × 812 phone viewport and a desktop width, light default after clearing storage, RU ↔ KK switch (and persistence), bottom navigation, composer next to the bottom bar, bottom bar hidden while the composer is focused, tapping "send" in that state, no horizontal overflow, AI cards rendering, "On the map" opening the map with a numbered pin and the bottom sheet, error card in Kazakh with a retry button, desktop map unchanged.
+
+**Not verified / known issues**
+- **Real Gemini generation is unverified**: no `GEMINI_API_KEY` exists on this machine. Reason / idea quality, structured-output behaviour of the chosen model and model auto-discovery against the real API are untested (discovery and parsing were exercised against the stand-in only). To verify: set the key, restart the backend, run the headline scenario.
+- Not tested on physical phones or with a real on-screen keyboard (only emulation); offline mode was not simulated, only the "backend unreachable / not configured" error paths.
+- Retrieval quality has no benchmark; sparse OSM data means many places are matched by category and name only. Semantic noise exists (e.g. an unrelated attraction for "музей истории").
+- "Cost" is known for only a handful of places (4 with a `fee` tag), so "free" requests rely on category heuristics and are labelled as unconfirmed.
+- Distances are straight lines; the travel time is a labelled rough estimate (no pedestrian router yet).
+- Session context is in server memory (lost on backend restart; the client then starts a fresh context under the same id).
+- The Gemini model name is discovered at runtime, so a different model may be selected over time; pin it with `GEMINI_MODEL` for reproducibility.
+- Single-process rate limiter and session store (fine for a demo, needs Redis for several workers).
+
+## Next: stage 4
+
+Long-term personalization (profile storage, learning from preferences) — not started. Session-only interests (Profile page) and typed `Interest` values are already wired through the API and can be reused.
 
 ## Architecture decisions
 
@@ -72,9 +117,6 @@ FastAPI skeleton (settings, CORS, JSON logs, unified error format, Swagger at `/
 - Not tested on a physical phone, Safari or Firefox. No automated tests (by design). `npm audit` not reviewed.
 - The importer is not scheduled; refresh is manual.
 
-## Next: stage 3 (RAG + AI)
-
-Not started. Ground work already in place: `pois.tags` JSONB, localised names/descriptions, pgvector extension enabled (no embeddings column yet), the search endpoint to combine with retrieval.
 
 ## External dependencies
 

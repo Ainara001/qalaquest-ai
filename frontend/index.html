@@ -3,14 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#F8FAFC" />
     <meta name="description" content="QalaQuest AI — Discover Astana Your Way" />
     <title>QalaQuest AI — Discover Astana Your Way</title>
     <script>
       try {
         var t = localStorage.getItem("qq-theme");
-        if (t === "dark" || (!t && matchMedia("(prefers-color-scheme: dark)").matches))
-          document.documentElement.classList.add("dark");
+        // light is the default theme; dark only if the user chose it
+        if (t === "dark") document.documentElement.classList.add("dark");
       } catch (e) {}
     </script>
   </head>

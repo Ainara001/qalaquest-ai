@@ -8,3 +8,7 @@ pydantic-settings==2.7.0
 GeoAlchemy2==0.15.2
 shapely==2.0.6
 httpx==0.28.1
+pgvector==0.3.6
+fastembed==0.7.4
+google-genai==1.52.0
+onnxruntime==1.22.1

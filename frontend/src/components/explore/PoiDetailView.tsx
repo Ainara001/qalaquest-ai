@@ -1,10 +1,12 @@
-import { ArrowLeft, ExternalLink, Globe, MapPin, Phone } from "lucide-react";
+import { ArrowLeft, ExternalLink, Globe, MapPin, Phone, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { CategoryDot } from "@/components/explore/CategoryDot";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatDistance } from "@/lib/format";
 import { usePoiDetail } from "@/hooks/usePois";
+import { useGuide } from "@/stores/guide";
 import { useExplore } from "@/stores/explore";
 
 const Row = ({ label, children }: { label: string; children: ReactNode }) => (
@@ -17,6 +19,8 @@ const Row = ({ label, children }: { label: string; children: ReactNode }) => (
 export function PoiDetailView({ id }: { id: number }) {
   const { t, i18n } = useTranslation();
   const { origin, select } = useExplore();
+  const navigate = useNavigate();
+  const setAnchor = useGuide((g) => g.setAnchor);
   const { data: poi, loading, error, reload } = usePoiDetail(id, origin ? { lat: origin.lat, lon: origin.lon } : null);
 
   const back = (
@@ -51,6 +55,17 @@ export function PoiDetailView({ id }: { id: number }) {
         <CategoryDot category={poi.category} />
         {t(`categorySingular.${poi.category}`)}
       </p>
+
+      <Button
+        size="sm"
+        className="mt-3 w-full"
+        onClick={() => {
+          setAnchor({ id: poi.id, name: poi.name });
+          navigate("/guide");
+        }}
+      >
+        <Sparkles className="h-4 w-4" /> {t("explore.toGuide")}
+      </Button>
 
       <dl className="mt-3 divide-y">
         {poi.distance_m !== null && (

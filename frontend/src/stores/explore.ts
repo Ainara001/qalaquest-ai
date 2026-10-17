@@ -6,7 +6,19 @@ export interface Origin {
   source: "geolocation" | "manual";
 }
 
+export interface AiPick {
+  id: number;
+  lat: number;
+  lon: number;
+  name: string | null;
+  n: number;
+}
+
 interface ExploreState {
+  aiPicks: AiPick[];
+  aiFocus: number; // bumps when the map should frame the AI picks
+  setAiPicks: (p: AiPick[]) => void;
+  focusAiPicks: () => void;
   categories: string[];
   search: string;
   radiusKm: number;
@@ -24,6 +36,10 @@ interface ExploreState {
 
 // Lives in memory only: the user's coordinates are never persisted or stored.
 export const useExplore = create<ExploreState>((set) => ({
+  aiPicks: [],
+  aiFocus: 0,
+  setAiPicks: (aiPicks) => set({ aiPicks }),
+  focusAiPicks: () => set((s) => ({ aiFocus: s.aiFocus + 1 })),
   categories: [],
   search: "",
   radiusKm: 2,

@@ -14,6 +14,17 @@ class Settings(BaseSettings):
     database_url: str
     cors_origins: str = "http://localhost:5173"
 
+    # --- AI / RAG ---
+    gemini_api_key: str | None = None
+    # Empty = discover the newest available Gemini "flash" model through the API at runtime.
+    gemini_model: str | None = None
+    gemini_timeout_s: float = 30.0
+    gemini_max_concurrency: int = 3
+    ai_rate_limit_per_min: int = 12  # per client IP, across /api/ai/*
+    embedding_model: str = "intfloat/multilingual-e5-large"
+    embedding_dim: int = 1024
+    embedding_cache_dir: str | None = None
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

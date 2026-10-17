@@ -3,7 +3,7 @@
 **Discover Astana Your Way** — a personal AI companion for walking around Astana.
 Built for the *Build with AI* hackathon (case: NIC Smart City).
 
-> Status: **Stage 2 of 7** — real Astana POIs, interactive map, RU/KK interface.
+> Status: **Stage 3 of 7** — AI guide (RAG + Gemini), mobile-first light UI.
 > See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
 ## Stack
@@ -13,6 +13,7 @@ Built for the *Build with AI* hackathon (case: NIC Smart City).
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS 3, shadcn/ui-style components, Lucide, MapLibre GL JS, i18next |
 | Backend  | Python 3.12, FastAPI, SQLAlchemy 2, GeoAlchemy2, Pydantic 2, Alembic, Shapely, httpx |
 | Database | PostgreSQL 16 + PostGIS 3 + pgvector |
+| AI       | `intfloat/multilingual-e5-large` embeddings (fastembed / ONNX, local), Gemini via `google-genai` |
 | Infra    | Docker Compose |
 
 ## Requirements
@@ -51,6 +52,8 @@ All settings come from environment variables (see [.env.example](.env.example)).
 | `CORS_ORIGINS` | Comma-separated origins allowed to call the API |
 | `VITE_API_URL` | Backend URL as seen from the browser. **Baked in at frontend build time** — rebuild the frontend after changing it |
 | `APP_ENV`, `LOG_LEVEL` | Runtime mode and log level |
+| `GEMINI_API_KEY` | Enables AI recommendations (https://aistudio.google.com/apikey). Without it search works, AI answers return a clear "not configured" error |
+| `GEMINI_MODEL` | Optional. Empty = newest `gemini-*-flash` available to your key is picked automatically |
 | `OVERPASS_URLS` | Optional, comma-separated Overpass endpoints (defaults to public instances, tried in turn on failure) |
 | `OVERPASS_USER_AGENT` | Optional User-Agent for Overpass requests; set it to something that identifies you |
 
@@ -89,6 +92,29 @@ Interactive docs: http://localhost:8000/api/docs. All list endpoints accept `lan
 `distance_m` is the **straight-line geodesic distance on the WGS84 spheroid** (PostGIS `ST_Distance` on `geography`), reported with `distance_method`. It is not a walking route.
 Importer control is CLI-only; there is no HTTP endpoint that can change data.
 
+## AI guide (RAG)
+
+1. Put your key into `.env` (`GEMINI_API_KEY=...`) and recreate the backend: `docker compose up -d backend`.
+2. Build the vector index once (downloads the ~2.2 GB embedding model into a Docker volume; ~10 min on CPU for 1030 places):
+
+```bash
+docker compose exec backend python -m app.scripts.index_pois
+```
+
+Re-run it after every POI import (or import with `--index`); unchanged places are skipped.
+
+3. Open the **AI guide** tab (or type on Home) and write, for example: *"Я возле MEGA Silk Way. У меня 60 минут, люблю красивые места и хочу погулять бесплатно"*.
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/ai/search` | Retrieval only (no LLM): ranked real POIs with score breakdown |
+| `POST /api/ai/recommend` | One-shot recommendations (1–3 cards with reasons) |
+| `POST /api/ai/chat` | Same with in-session context (`session_id`); `DELETE /api/ai/chat/{session_id}` forgets it |
+| `GET /api/ai/status` | LLM configured? model, embedding readiness, indexed POI count |
+
+Details: [docs/RAG_ARCHITECTURE.md](docs/RAG_ARCHITECTURE.md). Mobile UI: [docs/MOBILE_UI.md](docs/MOBILE_UI.md).
+Limits: 12 AI requests / minute / IP (`AI_RATE_LIMIT_PER_MIN`), messages ≤ 1000 characters. Distances are straight-line, never presented as walking routes.
+
 ## Localisation (RU / KK)
 
 - UI: `i18next` with `frontend/src/i18n/locales/ru.json` and `kk.json`. Russian is the default; the choice is stored in `localStorage` (`qq-lang`) and switching does not reload the page or reset the map.
@@ -118,7 +144,7 @@ docker compose exec backend alembic downgrade -1                      # roll bac
 ```
 
 New migration files are created inside the container; copy them out or mount `backend/` if you generate them often.
-Migration `0001` enables the `postgis` and `vector` extensions; `0002` adds `pois` and `import_runs` (and `pg_trgm` for name search).
+Migrations: `0001` enables `postgis` and `vector`; `0002` adds `pois` and `import_runs` (and `pg_trgm`); `0003` adds `poi_index` (documents, 1024-d embeddings, full-text vectors).
 
 ## Local development without Docker for the app
 
@@ -145,5 +171,5 @@ npm run dev        # http://localhost:5173
 backend/    FastAPI app (api, core, db, models, schemas, services, rag, integrations) + Alembic
 frontend/   React app (components, pages, layouts, hooks, services, stores, styles)
 db/         Dockerfile for PostgreSQL + PostGIS + pgvector
-docs/       PROJECT_STATUS.md, POI_DATA_PIPELINE.md
+docs/       PROJECT_STATUS.md, POI_DATA_PIPELINE.md, RAG_ARCHITECTURE.md, MOBILE_UI.md
 ```

@@ -23,6 +23,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-c", "--category", action="append", choices=CATEGORIES, help="limit to a category (repeatable)")
     parser.add_argument("--dry-run", action="store_true", help="do not write to the database")
+    parser.add_argument("--index", action="store_true", help="refresh the vector index after a successful import")
     parser.add_argument("--pause", type=float, default=3.0, help="seconds between Overpass requests (default 3)")
     args = parser.parse_args()
 
@@ -37,6 +38,11 @@ def main() -> int:
     finally:
         client.close()
     logging.getLogger("import_pois").info("done: %s", json.dumps({k: result[k] for k in ("status", "failed", "totals")}))
+    if args.index and result["status"] in ("success", "partial") and not args.dry_run:
+        from app.rag.embeddings import get_embedding_service
+
+        stats = get_embedding_service().index_all(SessionLocal)
+        logging.getLogger("import_pois").info("index refreshed: %s", json.dumps(stats))
     return 0 if result["status"] in ("success", "partial") else 1
 
 

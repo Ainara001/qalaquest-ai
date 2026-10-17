@@ -23,6 +23,11 @@ services:
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      EMBEDDING_CACHE_DIR: /models
+    volumes:
+      - modelcache:/models
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -48,3 +53,4 @@ services:
 
 volumes:
   pgdata:
+  modelcache:

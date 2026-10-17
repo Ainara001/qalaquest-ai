@@ -5,17 +5,25 @@
 
 @layer base {
   :root {
+    /* Light theme (default). Palette: #F8FAFC bg, #FFFFFF surface, #172033 text, #64748B secondary, teal accent, #E2E8F0 borders. */
     --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    --foreground: 222 38% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --muted: 214 32% 94%;
+    --card-foreground: 222 38% 15%;
+    --muted: 210 40% 96%;
     --muted-foreground: 215 16% 40%;
-    --border: 214 32% 88%;
-    --primary: 192 91% 32%;
+    --border: 214 32% 91%;
+    --primary: 175 80% 26%; /* teal-700-ish: AA contrast with white text */
     --primary-foreground: 0 0% 100%;
-    --accent: 239 84% 96%;
-    --accent-foreground: 239 70% 40%;
+    --accent: 166 76% 96%;
+    --accent-foreground: 175 84% 20%;
+    --brand: 173 80% 36%; /* #0D9488, decorative use (icons, indicators) */
+
+    --header-h: 3.5rem;
+    --nav-h: 3.75rem;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --vvh: 100dvh; /* replaced by the visual viewport height in JS (keyboard aware) */
+    --nav-eff: calc(var(--nav-h) + var(--safe-b));
   }
   .dark {
     --background: 224 40% 7%;
@@ -25,11 +33,34 @@
     --muted: 222 28% 16%;
     --muted-foreground: 215 20% 70%;
     --border: 222 25% 20%;
-    --primary: 188 86% 53%;
+    --primary: 174 72% 45%;
     --primary-foreground: 224 40% 7%;
-    --accent: 239 40% 20%;
-    --accent-foreground: 226 100% 88%;
+    --accent: 174 40% 16%;
+    --accent-foreground: 170 80% 85%;
+    --brand: 174 72% 50%;
   }
+  @media (min-width: 768px) {
+    :root { --nav-eff: 0px; }
+  }
+  html.kb-open { --nav-eff: 0px; }
+
   * { @apply border-border; }
-  body { @apply bg-background text-foreground font-sans antialiased; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-background text-foreground font-sans antialiased; overflow-x: hidden; }
+  /* 16px inputs stop iOS Safari from zooming the page on focus */
+  input, textarea, select { font-size: 16px; }
+}
+
+@layer utilities {
+  /* page area between the sticky header and the bottom navigation, keyboard aware */
+  .page-h { height: calc(var(--vvh) - var(--header-h) - var(--nav-eff)); }
+  .pb-nav { padding-bottom: calc(var(--nav-eff) + 1rem); }
+  .scroll-hide { scrollbar-width: none; }
+  .scroll-hide::-webkit-scrollbar { display: none; }
+}
+
+/* phones: pinch-zoom replaces the +/- buttons, which would collide with the floating actions */
+@media (max-width: 767px) {
+  .maplibregl-ctrl-top-right { display: none; }
+  .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { margin-bottom: 0.25rem; }
 }

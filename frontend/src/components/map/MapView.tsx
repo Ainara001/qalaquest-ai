@@ -3,6 +3,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
 import { CATEGORY_COLORS } from "@/lib/categories";
 import type { PoiFeatureCollection } from "@/services/pois";
+import type { AiPick } from "@/stores/explore";
 
 // OpenFreeMap: free OSM-based vector tiles, no API key. Attribution is shown by the map control.
 const STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
@@ -14,6 +15,8 @@ interface Props {
   selected: { id: number; lat: number; lon: number } | null;
   origin: { lat: number; lon: number } | null;
   radiusKm: number;
+  aiPicks: AiPick[];
+  aiFocus: number;
   picking: boolean;
   lang: string;
   theme: "light" | "dark";
@@ -34,7 +37,7 @@ function circlePolygon(lat: number, lon: number, km: number): GeoJSON.Feature<Ge
 }
 
 export function MapView(props: Props) {
-  const { points, selected, origin, radiusKm, picking, lang, theme } = props;
+  const { points, selected, origin, radiusKm, picking, lang, theme, aiPicks, aiFocus } = props;
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const live = useRef(props);
@@ -48,6 +51,10 @@ export function MapView(props: Props) {
     const p = live.current;
     (map.getSource("pois") as GeoJSONSource | undefined)?.setData(p.points ?? EMPTY);
     map.setFilter("poi-selected", ["==", ["get", "id"], p.selected?.id ?? -1]);
+    (map.getSource("ai") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: p.aiPicks.map((a) => ({ type: "Feature", properties: { id: a.id, n: String(a.n) }, geometry: { type: "Point", coordinates: [a.lon, a.lat] } })),
+    });
     const o = p.origin;
     (map.getSource("origin") as GeoJSONSource | undefined)?.setData(
       o ? { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [o.lon, o.lat] } }] } : EMPTY,
@@ -96,6 +103,18 @@ export function MapView(props: Props) {
       paint: { "circle-radius": 12, "circle-color": "rgba(0,0,0,0)", "circle-stroke-width": 3, "circle-stroke-color": "#f59e0b" },
     });
 
+    // AI recommendations: numbered pins, never clustered, drawn above regular POIs
+    map.addSource("ai", { type: "geojson", data: EMPTY });
+    map.addLayer({
+      id: "poi-ai", type: "circle", source: "ai",
+      paint: { "circle-radius": 14, "circle-color": "#0f766e", "circle-stroke-width": 3, "circle-stroke-color": "#ffffff" },
+    });
+    map.addLayer({
+      id: "poi-ai-n", type: "symbol", source: "ai",
+      layout: { "text-field": ["get", "n"], "text-font": ["Noto Sans Bold"], "text-size": 14, "text-allow-overlap": true, "text-ignore-placement": true },
+      paint: { "text-color": "#ffffff" },
+    });
+
     map.addSource("origin", { type: "geojson", data: EMPTY });
     map.addLayer({
       id: "origin-dot", type: "circle", source: "origin",
@@ -127,16 +146,20 @@ export function MapView(props: Props) {
       const zoom = await src.getClusterExpansionZoom(f.properties.cluster_id);
       map.easeTo({ center: (f.geometry as GeoJSON.Point).coordinates as [number, number], zoom: zoom + 0.5 });
     });
+    map.on("click", "poi-ai", (e) => {
+      const id = e.features?.[0]?.properties?.id;
+      if (id !== undefined) live.current.onSelect(Number(id));
+    });
     map.on("click", "poi-points", (e) => {
       const id = e.features?.[0]?.properties?.id;
       if (id !== undefined) live.current.onSelect(Number(id));
     });
     map.on("click", (e) => {
       if (!live.current.picking) return;
-      if (map.queryRenderedFeatures(e.point, { layers: ["poi-points", "poi-clusters"] }).length) return;
+      if (map.queryRenderedFeatures(e.point, { layers: ["poi-points", "poi-clusters", "poi-ai"] }).length) return;
       live.current.onPick(e.lngLat.lat, e.lngLat.lng);
     });
-    for (const layer of ["poi-clusters", "poi-points"]) {
+    for (const layer of ["poi-clusters", "poi-points", "poi-ai"]) {
       map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
       map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = live.current.picking ? "crosshair" : ""));
     }
@@ -151,7 +174,7 @@ export function MapView(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(sync, [points, selected?.id, origin?.lat, origin?.lon, radiusKm, lang]);
+  useEffect(sync, [points, selected?.id, origin?.lat, origin?.lon, radiusKm, lang, aiPicks]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -171,8 +194,23 @@ export function MapView(props: Props) {
 
   // Fly to the selected place.
   useEffect(() => {
-    if (selected) mapRef.current?.easeTo({ center: [selected.lon, selected.lat], zoom: Math.max(mapRef.current.getZoom(), 16), duration: 600 });
+    const map = mapRef.current;
+    if (!selected || !map) return;
+    // on phones the bottom sheet covers the lower ~half: keep the place in the visible upper part
+    const bottom = window.innerWidth < 768 ? Math.round((box.current?.clientHeight ?? 0) * 0.5) : 0;
+    map.easeTo({ center: [selected.lon, selected.lat], zoom: Math.max(map.getZoom(), 16), duration: 600, padding: { top: 70, bottom, left: 0, right: 0 } });
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Frame the AI picks when asked ("on the map" from the guide)
+  useEffect(() => {
+    const map = mapRef.current;
+    const picks = live.current.aiPicks;
+    if (!map || !aiFocus || picks.length === 0) return;
+    if (picks.length === 1) return; // a single pick is framed by the selection fly-to
+    const b = new maplibregl.LngLatBounds();
+    picks.forEach((a) => b.extend([a.lon, a.lat]));
+    map.fitBounds(b, { padding: { top: 120, bottom: 220, left: 50, right: 50 }, maxZoom: 16, duration: 600 });
+  }, [aiFocus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Frame the search radius when an origin is chosen.
   useEffect(() => {
