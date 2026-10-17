@@ -1,1 +1,4 @@
-# Domain models are added from stage 2 (POI, etc.).
+from app.models.import_run import ImportRun
+from app.models.poi import Poi
+
+__all__ = ["ImportRun", "Poi"]
