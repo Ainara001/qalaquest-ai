@@ -79,6 +79,8 @@ export function RecRow({ rec, n, onOpen }: { rec: Recommendation; n: number; onO
           <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5"><CategoryDot category={rec.category} /> {t(`categorySingular.${rec.category}`)}</span>
             {rec.distance_m !== null && <span>· {formatDistance(rec.distance_m, t)}</span>}
+            {/* straight-line estimate at 4.5 km/h ×1.3 for streets; the real walking time comes from the route */}
+            {rec.distance_m !== null && rec.distance_m > 150 && <span>· {t("recs.walkMin", { n: Math.max(1, Math.round((rec.distance_m * 1.3) / 75)) })}</span>}
             <OpenBadge status={rec.open_status} />
           </span>
           <span className="mt-1.5 block space-y-0.5">
@@ -90,6 +92,9 @@ export function RecRow({ rec, n, onOpen }: { rec: Recommendation; n: number; onO
                 </span>
               );
             })}
+          </span>
+          <span className="mt-1 block text-xs text-muted-foreground">
+            <span className="font-medium">{t("recs.ideaLabel")}</span> {t(`surprise.idea.${rec.category}`)}
           </span>
         </span>
       </button>
