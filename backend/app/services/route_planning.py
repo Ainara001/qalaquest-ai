@@ -17,6 +17,7 @@ import itertools
 import logging
 import math
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from app.integrations.valhalla import NoRoute, RoutingUnavailable, ValhallaClient
 from app.rag.retrieval import Candidate
@@ -24,6 +25,9 @@ from app.rag.taxonomy import INDOOR_CATEGORIES, OUTDOOR_CATEGORIES, VISIT_MINUTE
 from app.schemas.ai import InterestMatch, Notice
 from app.schemas.routes import RouteLeg, RouteStop, RouteTotals, StartPoint, StopReason
 from app.schemas.weather import WeatherAssessment
+
+if TYPE_CHECKING:
+    from app.schemas.routes import Route
 
 log = logging.getLogger("route_planning")
 PACE_KMH = {"slow": 3.6, "normal": 4.8, "active": 6.0}

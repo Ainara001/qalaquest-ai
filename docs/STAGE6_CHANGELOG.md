@@ -194,3 +194,15 @@
 | edit | `docs/MAP_FIRST_UX.md`, `docs/ADVANCED_AI_FEATURES.md` | Описание флажков квеста и анимаций |
 
 Проверено: квест создан и начат → панель закрыта → флажок остановки отрисован на карте (`queryRenderedFeatures` по слою `quest-stops`), полоса «Квест «Исследователь Астаны» · 0/3» видна; сборка проходит.
+
+## Фаза 12 — `stage6/12-final-review`
+
+| Действие | Файл | Что сделано |
+|---|---|---|
+| edit | `frontend/src/pages/Profile.tsx` | В «О приложении» — число реальных мест в базе, дата снимка OpenStreetMap и атрибуция (или «данные ещё не загружены»); раньше это показывала удалённая «Главная» |
+| edit | `frontend/src/i18n/locales/ru.json`, `kk.json` | Тексты блока данных |
+| edit | `backend/app/services/route_planning.py` | Импорт `Route` для аннотации под `TYPE_CHECKING` (замечание линтера F821) |
+| edit | `backend/app/api/pois.py` | Убраны неиспользуемые импорты (`and_`, `PoiItem`) |
+| edit | `frontend/package.json`, `package-lock.json` | Версия 0.6.0 (этап 6) |
+
+Проверено: `ruff --select F,E9` по изменённым модулям — чисто (2 старых неиспользуемых импорта в не затронутых этапом 6 файлах оставлены); `pytest` — 38 passed; `tsc` проходит; блок данных в профиле отображается.

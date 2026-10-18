@@ -2,13 +2,13 @@ import re
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
-from sqlalchemy import Select, and_, desc, func, literal, or_, select
+from sqlalchemy import Select, desc, func, literal, or_, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.integrations.osm_categories import CATEGORIES, CATEGORY_LABELS
 from app.models import ImportRun, Poi
-from app.schemas.poi import CategoryCount, PoiDetail, PoiItem, PoiList, PoiStats, SourceInfo, SuggestItem, SuggestResponse
+from app.schemas.poi import CategoryCount, PoiDetail, PoiList, PoiStats, SourceInfo, SuggestItem, SuggestResponse
 
 router = APIRouter(prefix="/pois", tags=["pois"])
 

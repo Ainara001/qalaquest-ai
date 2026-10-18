@@ -1,16 +1,39 @@
 import { Accessibility, Ban, Bookmark, CheckCircle2, Footprints, Heart, Info, MapPin, Moon, ShieldCheck, Sparkles, Sun, Trash2, Wallet, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { CategoryDot } from "@/components/explore/CategoryDot";
 import { INTEREST_ICONS } from "@/components/icons";
 import { LANGUAGES } from "@/i18n";
 import { CATEGORY_COLORS } from "@/lib/categories";
+import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { fetchStats, type PoiStats } from "@/services/pois";
 import { useExplore } from "@/stores/explore";
 import { useGuide } from "@/stores/guide";
 import { isConfigured, personalizationOn, PROFILE_INTERESTS, useProfile, type Budget, type FeedbackKind, type Pace, type Setting } from "@/stores/profile";
 import { useTheme } from "@/stores/theme";
+
+/** What the app knows: number of real places and the date of the OpenStreetMap snapshot (was on the old Home). */
+function DataInfo() {
+  const { t, i18n } = useTranslation();
+  const [stats, setStats] = useState<PoiStats | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    fetchStats().then(setStats).catch(() => setFailed(true));
+  }, []);
+  if (failed) return <p className="mt-2 text-sm text-muted-foreground">{t("profile.dataError")}</p>;
+  if (!stats) return <p className="mt-2 h-5 w-48 animate-pulse rounded bg-muted" />;
+  if (!stats.total) return <p className="mt-2 text-sm text-muted-foreground">{t("profile.dataEmpty")}</p>;
+  const when = stats.osm_data_timestamp ?? stats.last_successful_update;
+  return (
+    <p className="mt-2 text-sm text-muted-foreground">
+      {t("profile.dataTotal", { count: stats.total })}
+      {when && <> · {t("profile.dataUpdated", { date: formatDate(when, i18n.language) })}</>}
+      <span className="block text-xs">{t("poi.attribution")}</span>
+    </p>
+  );
+}
 
 function Section({ icon, title, children, hint }: { icon: ReactNode; title: string; hint?: string; children: ReactNode }) {
   return (
@@ -317,6 +340,7 @@ export function Profile() {
 
       <Section icon={<Info className="h-5 w-5" />} title={t("profile.about")}>
         <p className="text-sm text-muted-foreground">{t("profile.aboutText", { version: __APP_VERSION__ })}</p>
+        <DataInfo />
       </Section>
 
       {!prof.storeOnDevice && !bannerHidden && (isConfigured(prefs) || feedbackCount > 0) && (

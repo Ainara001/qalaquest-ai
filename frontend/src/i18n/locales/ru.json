@@ -397,7 +397,11 @@
     "eraseAll": "Удалить все мои данные",
     "confirm": "Нажмите ещё раз для подтверждения",
     "done": "Готово",
-    "feedbackCount": "Отметок о местах: {{count}}"
+    "feedbackCount": "Отметок о местах: {{count}}",
+    "dataTotal": "Реальных мест в базе: {{count}}",
+    "dataUpdated": "данные OpenStreetMap от {{date}}",
+    "dataEmpty": "Данные ещё не загружены: администратору нужно запустить импорт POI (см. README).",
+    "dataError": "Не удалось получить сведения о данных."
   },
   "interest": {
     "beautiful": "Красивые места",
