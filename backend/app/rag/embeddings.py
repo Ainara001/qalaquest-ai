@@ -29,12 +29,24 @@ class EmbeddingService:
         self._lock = threading.Lock()
 
     @property
+    def remote(self) -> bool:
+        # "gemini-embedding-001": vectors from the Gemini API, no model in memory (hosts with 512 MB RAM)
+        return self.model_name.startswith("gemini")
+
+    @property
     def ready(self) -> bool:
         return self._model is not None
 
     def _load(self):
         with self._lock:
-            if self._model is None:
+            if self._model is None and self.remote:
+                from google import genai
+
+                key = get_settings().gemini_api_key
+                if not key:
+                    raise RuntimeError("GEMINI_API_KEY is required for Gemini embeddings")
+                self._model = genai.Client(api_key=key)
+            elif self._model is None:
                 from fastembed import TextEmbedding
 
                 log.info("loading embedding model %s", self.model_name)
@@ -45,7 +57,35 @@ class EmbeddingService:
     def warm_up(self) -> None:
         self._load()
 
-    def _embed(self, texts: list[str]) -> list[list[float]]:
+    def _embed_remote(self, texts: list[str], task: str) -> list[list[float]]:
+        import time
+
+        from google.genai import types
+
+        client = self._load()
+        out: list[list[float]] = []
+        for i in range(0, len(texts), 100):  # API limit: 100 texts per request
+            for attempt in range(6):
+                try:
+                    r = client.models.embed_content(
+                        model=self.model_name, contents=texts[i : i + 100],
+                        config=types.EmbedContentConfig(task_type=task, output_dimensionality=self.dim),
+                    )
+                    out.extend(list(e.values) for e in r.embeddings)
+                    break
+                except Exception as exc:  # free tier: per-minute quota → wait and retry
+                    if attempt == 5 or "429" not in str(exc) and "RESOURCE_EXHAUSTED" not in str(exc):
+                        raise
+                    log.warning("embedding quota hit, retrying in 20s")
+                    time.sleep(20)
+        return out
+
+    def _embed(self, texts: list[str], task: str = "RETRIEVAL_DOCUMENT") -> list[list[float]]:
+        if self.remote:
+            vectors = self._embed_remote(texts, task)
+            if vectors and len(vectors[0]) != self.dim:
+                raise RuntimeError(f"model returns {len(vectors[0])}-d vectors, configured {self.dim}")
+            return vectors
         model = self._load()
         with self._lock:  # ONNX session is shared; keep inference sequential
             vectors = [v.tolist() for v in model.embed(texts, batch_size=BATCH)]
@@ -54,7 +94,7 @@ class EmbeddingService:
         return vectors
 
     def embed_query(self, query: str) -> list[float]:
-        return self._embed([f"{self._q}{query}"])[0]
+        return self._embed([f"{self._q}{query}"], "RETRIEVAL_QUERY")[0]
 
     def embed_passages(self, docs: list[str]) -> list[list[float]]:
         return self._embed([f"{self._p}{d}" for d in docs])
@@ -77,8 +117,9 @@ class EmbeddingService:
                 else:
                     todo.append((p.id, doc, h))
 
-        for i in range(0, len(todo), BATCH):
-            chunk = todo[i : i + BATCH]
+        batch = 100 if self.remote else BATCH
+        for i in range(0, len(todo), batch):
+            chunk = todo[i : i + batch]
             try:
                 vectors = self.embed_passages([d for _, d, _ in chunk])
                 rows = [
@@ -95,7 +136,7 @@ class EmbeddingService:
                     s.execute(stmt)
                     s.commit()
                 stats["embedded"] += len(chunk)
-                log.info("indexed %d/%d", min(i + BATCH, len(todo)), len(todo))
+                log.info("indexed %d/%d", min(i + batch, len(todo)), len(todo))
             except Exception:  # one bad batch must not stop the rest
                 log.exception("batch %d failed", i // BATCH)
                 stats["failed"] += len(chunk)
