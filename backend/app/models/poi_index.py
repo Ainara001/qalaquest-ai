@@ -5,9 +5,11 @@ from sqlalchemy import BigInteger, Computed, DateTime, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.config import get_settings
 from app.db.session import Base
 
-EMBEDDING_DIM = 1024  # intfloat/multilingual-e5-large; changing the model means a new migration
+# 1024 = intfloat/multilingual-e5-large (default); smaller hosts set EMBEDDING_MODEL/EMBEDDING_DIM (migration 0005 resizes)
+EMBEDDING_DIM = get_settings().embedding_dim
 
 
 class PoiIndex(Base):

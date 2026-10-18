@@ -22,6 +22,9 @@ class EmbeddingService:
         self.model_name = s.embedding_model
         self.dim = s.embedding_dim
         self._cache_dir = s.embedding_cache_dir
+        # only e5 models are trained with "query: " / "passage: " prefixes
+        e5 = "e5" in self.model_name.lower()
+        self._q, self._p = ("query: ", "passage: ") if e5 else ("", "")
         self._model = None
         self._lock = threading.Lock()
 
@@ -51,10 +54,10 @@ class EmbeddingService:
         return vectors
 
     def embed_query(self, query: str) -> list[float]:
-        return self._embed([f"query: {query}"])[0]
+        return self._embed([f"{self._q}{query}"])[0]
 
     def embed_passages(self, docs: list[str]) -> list[list[float]]:
-        return self._embed([f"passage: {d}" for d in docs])
+        return self._embed([f"{self._p}{d}" for d in docs])
 
     # ------------------------------------------------------------ indexing
 
