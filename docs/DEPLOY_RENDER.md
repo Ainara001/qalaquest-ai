@@ -10,14 +10,15 @@
 | `qalaquest-web` | Web Service, Docker (`frontend/Dockerfile`) | nginx + сборка Vite (SPA-переходы работают) |
 
 ## Чем отличается от локального стека
-- **Эмбеддинги:** `gemini-embedding-001` через Gemini API (768-d) вместо локальной `multilingual-e5-large` (1024-d, 2,2 ГБ). На бесплатном тарифе (512 МБ, 0,1 CPU) локальная ONNX-модель не помещается в память: процесс падал при загрузке, поэтому векторы считает Google. Миграция `0005` подгоняет размер вектора под `EMBEDDING_DIM`. Бесплатная квота — 100 текстов в минуту, поэтому первичная индексация идёт пачками по 90 в минуту (~15 мин). Каждый поисковый запрос — 1 текст. Локальный стек по-прежнему использует e5-large без внешних вызовов.
+- **Поиск без векторов (лексический режим, `EMBEDDING_MODEL=none`).** Локальная модель эмбеддингов не помещается в 512 МБ: MiniLM занимает ~594 МБ после загрузки, процесс падал. Gemini-эмбеддинги (`gemini-embedding-001`, поддерживаются кодом) на бесплатном ключе ограничены 1000 текстами в сутки, а это меньше, чем 1177 мест. Поэтому индекс хранит документы и полнотекстовые векторы без эмбеддингов (миграция `0006`), а поиск идёт по ключевым словам, названиям, категориям, которые Gemini извлекает из запроса, и по ранжированию (расстояние, время, интересы, погода, часы работы). Локальный стек (`docker compose`) работает в полном гибридном режиме с e5-large. Режим виден в `GET /api/ai/status` → `retrieval_mode`.
+- **Генерация:** `GEMINI_MODEL=gemini-flash-lite-latest`, резерв `GEMINI_FALLBACK_MODELS=gemini-flash-latest`. У flash на бесплатном ключе 20 запросов в сутки; при 429 или 404 запрос автоматически уходит к следующей модели.
 - **Данные:** Overpass с серверов Render почти всегда отвечает 500/504, поэтому в репозитории лежит снимок ответов Overpass `backend/data/osm_snapshot.json.gz` (1030 POI, © OpenStreetMap contributors, ODbL). При `AUTO_BOOTSTRAP_DATA=true` сервер один раз импортирует снимок тем же конвейером и строит индекс в фоне (~10–20 мин на бесплатном CPU).
 - **Пешеходные маршруты:** Valhalla не развёрнута (нужны тайлы всего Казахстана). Время и расстояние — честно помеченные оценки по прямой.
 - **Сон:** бесплатные сервисы засыпают после 15 мин без запросов; первое открытие ≈ 1 мин. Перед показом откройте сайт заранее.
 - **Срок:** бесплатная база Render удаляется 17.11.2026.
 
 ## Переменные `qalaquest-api`
-`DATABASE_URL` (Internal URL базы, `postgresql://` принимается), `CORS_ORIGINS=https://qalaquest-web.onrender.com`, `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-flash-latest`, `EMBEDDING_MODEL=gemini-embedding-001`, `EMBEDDING_DIM=768`, `AUTO_BOOTSTRAP_DATA=true`, `OVERPASS_URLS`.
+`DATABASE_URL` (Internal URL базы, `postgresql://` принимается), `CORS_ORIGINS=https://qalaquest-web.onrender.com`, `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-flash-lite-latest`, `GEMINI_FALLBACK_MODELS=gemini-flash-latest`, `EMBEDDING_MODEL=none`, `EMBEDDING_DIM=768`, `AUTO_BOOTSTRAP_DATA=true`, `OVERPASS_URLS`.
 `qalaquest-web`: `VITE_API_URL=https://qalaquest-api.onrender.com` (передаётся в сборку как build-arg).
 
 ## Обновить снимок данных
