@@ -185,6 +185,7 @@ class LivingRouteService:
         reasons: list[Notice] = []
         must: set[int] = set()
         intent: QueryIntent | None = None
+        include: list[str] = []
         finished = False
 
         # ---- 1. apply the event to the walk state
@@ -196,6 +197,9 @@ class LivingRouteService:
             if ev.type == "tired":
                 prefs.interests = list(dict.fromkeys([*prefs.interests, "relax"]))
             reasons.append(Notice(code=ev.type))
+        elif ev.type == "want_food":  # one real cafe / restaurant near the current position becomes a stop
+            include = ["cafe", "restaurant"]
+            reasons.append(Notice(code="want_food"))
         elif ev.type == "go_indoor":
             prefs.indoor = True
             reasons.append(Notice(code="go_indoor"))
@@ -286,12 +290,16 @@ class LivingRouteService:
             weather = WeatherAssessment(level="indoor_preferred", conditions=["comfortable"], outdoor_cap_min=INDOOR_CAP_MIN, basis="current",
                                         window_minutes=remaining or 60, max_wind_ms=None, max_gusts_ms=None, min_apparent_c=None,
                                         max_precipitation_probability_pct=None)
-        if intent and intent.include_categories:  # "хочу кофе": one stop of that kind is required
+        if intent and intent.include_categories:
+            include = list(intent.include_categories)
+        if include:  # "хочу кофе" / "хочу поесть": one stop of that kind is required
             ctx_cat, cat_cands = await asyncio.to_thread(
                 self._context_and_candidates, req.personalization, intent, prefs, anchor, remaining, None,
-                list(intent.include_categories), excluded_ids, set(), None, weather)
+                include, excluded_ids, set(), None, weather)
             if cat_cands:
                 must.add(cat_cands[0].poi.id)
+            elif ev.type == "want_food":
+                notes.append(Notice(code="no_food_nearby"))
         ctx, cands = await asyncio.to_thread(
             self._context_and_candidates, req.personalization, intent.model_copy(update={"include_categories": []}) if intent else None,
             prefs, anchor, remaining, None, None, excluded_ids, set(pending), None, weather)
@@ -306,7 +314,9 @@ class LivingRouteService:
         if prefs.less_walking:
             max_walk = min(max_walk or LESS_WALKING_MAX_M, LESS_WALKING_MAX_M)
         # keep the size of the walk the user agreed to (pending stops + explicitly requested ones)
-        places = min(3, max(len(pending), len(must), 1)) if s.stops else ctx.places_count
+        # a food stop is added on top of the agreed walk (up to 4 stops), not instead of one of its places
+        extra_stop = 1 if ev.type == "want_food" and must - set(pending) else 0
+        places = min(3 + extra_stop, max(len(pending) + extra_stop, len(must), 1)) if s.stops else ctx.places_count
         outcome = await self.planner.plan(
             start=current, candidates=cands, lang=req.lang, places_count=places, pace=pace, time_budget=remaining,
             max_walk_m=max_walk, weather=weather, wheelchair=ctx.wheelchair, must_ids=must, keep_ids=set(pending),

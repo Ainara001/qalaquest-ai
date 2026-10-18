@@ -91,7 +91,7 @@ export interface SessionUpdate {
   finished: boolean;
 }
 export type EventType =
-  | "time_left" | "less_walking" | "tired" | "go_indoor" | "visited" | "skip" | "reject" | "add_poi"
+  | "time_left" | "less_walking" | "tired" | "want_food" | "go_indoor" | "visited" | "skip" | "reject" | "add_poi"
   | "location" | "interests" | "mood" | "weather_refresh" | "manual" | "message";
 export interface RouteEvent { type: EventType; minutes?: number; poi_id?: number; location?: StartPoint; interests?: string[]; mood?: string; message?: string }
 

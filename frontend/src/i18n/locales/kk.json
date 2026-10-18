@@ -563,7 +563,8 @@
       "manual": "қолмен қайта құру",
       "categories_excluded": "санаттар алынды",
       "finish": "аяқтау",
-      "location_updated": "жаңа бастау нүктесі"
+      "location_updated": "жаңа бастау нүктесі",
+      "want_food": "жолда тамақтану"
     },
     "notices": {
       "start_assumed_last_visited": "Орналасқан жеріңіз белгісіз — соңғы барған орыннан есептеймін.",
@@ -617,7 +618,8 @@
     "moodCleared": "Көңіл күй тасталды. Көңіл күйді ескермей бағыт таңдайық па?",
     "moodSuggest": "Бағыт ұсыну",
     "notNow": "Қазір емес",
-    "moodChangedShort": "көңіл күй өзгерді"
+    "moodChangedShort": "көңіл күй өзгерді",
+    "wantFood": "Тамақтанғым келеді"
   },
   "weather": {
     "title": "Ауа райы",

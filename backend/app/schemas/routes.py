@@ -153,7 +153,7 @@ class RouteSessionIn(_Strict):
 
 
 EventType = Literal[
-    "time_left", "less_walking", "tired", "go_indoor", "visited", "skip", "reject", "add_poi",
+    "time_left", "less_walking", "tired", "want_food", "go_indoor", "visited", "skip", "reject", "add_poi",
     "location", "interests", "mood", "weather_refresh", "manual", "message",
 ]
 

@@ -39,20 +39,35 @@ def _bootstrap_data() -> None:
 
     blog = logging.getLogger("bootstrap")
     try:
-        with SessionLocal() as s:
-            count = s.scalar(select(func.count()).select_from(Poi))
-        if not count:
-            from app.integrations.overpass import DEFAULT_ENDPOINTS, OverpassClient
-            from app.services.poi_import import run_import
+        import hashlib
+        from pathlib import Path
 
-            blog.info("database is empty: importing POIs from OpenStreetMap")
+        from app.integrations.overpass import DEFAULT_ENDPOINTS, OverpassClient, SnapshotClient
+        from app.models import ImportRun
+        from app.services.poi_import import run_import
+
+        snapshot = Path(os.getenv("POI_SNAPSHOT", "data/osm_snapshot.json.gz"))
+        label = None
+        if snapshot.is_file():
+            label = "snapshot:" + hashlib.sha1(snapshot.read_bytes()).hexdigest()[:12]
+            with SessionLocal() as s:
+                runs = s.scalars(select(ImportRun.details).where(ImportRun.status.in_(("success", "partial")))).all()
+            todo = not any((d or {}).get("_label") == label for d in runs)  # each snapshot is imported once
+            client, pause = SnapshotClient(str(snapshot)), 0.0
+        else:
+            with SessionLocal() as s:
+                todo = not s.scalar(select(func.count()).select_from(Poi))
             urls = os.getenv("OVERPASS_URLS")
-            client = OverpassClient(endpoints=[u.strip() for u in urls.split(",")] if urls else DEFAULT_ENDPOINTS, user_agent="QalaQuestAI/0.2 (hackathon project)")
-            try:
-                result = run_import(SessionLocal, client, None, dry_run=False, pause=3.0)
-            finally:
-                client.close()
-            blog.info("import: %s %s", result["status"], result["totals"])
+            client = OverpassClient(endpoints=[u.strip() for u in urls.split(",")] if urls else DEFAULT_ENDPOINTS,
+                                    user_agent="QalaQuestAI/0.2 (hackathon project)")
+            pause = 3.0
+        try:
+            if todo:
+                blog.info("importing POIs from %s", label or "OpenStreetMap (Overpass)")
+                result = run_import(SessionLocal, client, None, dry_run=False, pause=pause, label=label)
+                blog.info("import: %s %s", result["status"], result["totals"])
+        finally:
+            client.close()
         stats = get_embedding_service().index_all(SessionLocal)  # only new or changed POIs
         blog.info("index: %s", stats)
     except Exception:

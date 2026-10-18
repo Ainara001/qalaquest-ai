@@ -177,6 +177,7 @@ def run_import(
     categories: list[str] | None = None,
     dry_run: bool = False,
     pause: float = 3.0,
+    label: str | None = None,
 ) -> dict:
     """Import POIs category by category.
 
@@ -274,7 +275,7 @@ def run_import(
             run.status = status
             run.osm_base_timestamp = snapshot
             run.fetched, run.inserted, run.updated, run.skipped = (totals[k] for k in ("fetched", "inserted", "updated", "skipped"))
-            run.details = details
+            run.details = details | ({"_label": label} if label else {})
             run.error = f"failed categories: {', '.join(failures)}" if failures else None
             s.commit()
     return {"status": status, "failed": failures, "totals": totals, "details": details, "dry_run": dry_run}

@@ -1,4 +1,4 @@
-import { Check, Crosshair, Flag, Footprints, LocateFixed, Loader2, MapPin, RefreshCw, Send, Shuffle, Smile, Sparkles, Timer, Umbrella, X } from "lucide-react";
+import { BatteryLow, Check, Crosshair, Flag, Footprints, LocateFixed, Loader2, MapPin, RefreshCw, Send, Shuffle, Smile, Sparkles, Timer, Umbrella, Utensils, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BottomSheet } from "@/components/BottomSheet";
@@ -316,6 +316,8 @@ function ChangeRoute({ open, onClose, onEvent, locate, geoError }: { open: boole
             ))}
           </div>
           {row(<Footprints className="h-5 w-5" />, t("walk.lessWalking"), () => onEvent({ type: "less_walking" }))}
+          {row(<BatteryLow className="h-5 w-5" />, t("walk.tired"), () => onEvent({ type: "tired" }))}
+          {row(<Utensils className="h-5 w-5" />, t("walk.wantFood"), () => onEvent({ type: "want_food" }))}
           {row(<Umbrella className="h-5 w-5" />, t("walk.goIndoor"), () => onEvent({ type: "go_indoor" }))}
           {row(<Sparkles className="h-5 w-5" />, t("walk.changeInterests"), () => setMode("interests"))}
           {row(<Shuffle className="h-5 w-5" />, t("walk.otherPlace"), () => setMode("replace"))}

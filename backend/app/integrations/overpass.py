@@ -69,3 +69,55 @@ class OverpassClient:
                 log.warning("overpass attempt %d/%d failed (%s); retrying in %.0fs", attempt, self.max_attempts, last_error, delay)
                 time.sleep(delay)
         raise OverpassError(f"all {self.max_attempts} attempts failed: {last_error}")
+
+
+# ------------------------------------------------------------ snapshots
+# Hosts that cannot reach Overpass reliably (e.g. Render) load a recorded snapshot of the same queries.
+# The snapshot is raw OSM data (© OpenStreetMap contributors, ODbL); the import pipeline is unchanged.
+
+def _key(ql: str) -> str:
+    import hashlib
+
+    return hashlib.sha1(ql.encode("utf-8")).hexdigest()
+
+
+class RecordingClient:
+    """Wraps a live client and stores every successful answer in a gzipped JSON snapshot."""
+
+    def __init__(self, inner: OverpassClient, path: str):
+        self.inner, self.path, self.data = inner, path, {}
+
+    def query(self, ql: str) -> dict:
+        resp = self.inner.query(ql)
+        self.data[_key(ql)] = resp
+        return resp
+
+    def close(self) -> None:
+        import gzip
+        import json
+
+        self.inner.close()
+        if self.data:
+            with gzip.open(self.path, "wt", encoding="utf-8") as f:
+                json.dump(self.data, f, ensure_ascii=False, separators=(",", ":"))
+            log.info("snapshot saved: %s (%d queries)", self.path, len(self.data))
+
+
+class SnapshotClient:
+    """Answers queries from a recorded snapshot; an unknown query fails like an unavailable server."""
+
+    def __init__(self, path: str):
+        import gzip
+        import json
+
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            self.data = json.load(f)
+
+    def query(self, ql: str) -> dict:
+        try:
+            return self.data[_key(ql)]
+        except KeyError:
+            raise OverpassError("query not in snapshot") from None
+
+    def close(self) -> None:
+        pass
