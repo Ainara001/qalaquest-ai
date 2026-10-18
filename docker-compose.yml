@@ -26,6 +26,9 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-}
       EMBEDDING_CACHE_DIR: /models
+      VALHALLA_URL: http://valhalla:8002
+      WEATHER_RULES: ${WEATHER_RULES:-}
+      RANKING_WEIGHTS: ${RANKING_WEIGHTS:-}
     volumes:
       - modelcache:/models
     ports:
@@ -39,6 +42,30 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+
+  # Pedestrian routing: Valhalla built from the OpenStreetMap extract of Kazakhstan (Geofabrik).
+  # Download the extract first with ./routing/prepare.sh (resumable); the first start builds routing tiles
+  # once (several minutes), later starts reuse them from ./routing/data.
+  valhalla:
+    image: ghcr.io/valhalla/valhalla-scripted:latest
+    environment:
+      use_tiles_ignore_pbf: "True"
+      force_rebuild: "False"
+      build_elevation: "False"
+      build_admins: "True"
+      build_time_zones: "False"
+      build_tar: "True"
+      server_threads: "2"
+    ports:
+      - "${VALHALLA_PORT:-8002}:8002"
+    volumes:
+      - ./routing/data:/custom_files
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8002/status || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
 
   frontend:
     build:

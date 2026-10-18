@@ -1,6 +1,6 @@
 # QalaQuest AI — Project status
 
-_Last updated: 2026-10-18 (stage 4)_
+_Last updated: 2026-10-18 (stage 5)_
 
 ## Stages
 
@@ -10,7 +10,8 @@ _Last updated: 2026-10-18 (stage 4)_
 | 2 | Real POIs of Astana, interactive map, RU/KK UI | **Done** (see "Known issues") |
 | 3 | RAG + AI, mobile-first light UI | **Done except one item**: real Gemini calls were not verified (no API key available) |
 | 4 | Personal AI: profile, moods, feedback, personal ranking | **Done**; real Gemini still unverified (no key) |
-| 5–7 | Living Route, Quest, Weather, Group Harmony, Surprise Me, English UI | Not started |
+| 5 | Living Route (real pedestrian routing, re-planning) + Astana Weather Mode | **Done**; Gemini-dependent parts (free-text route changes, route summaries) unverified with the real API (no key) |
+| 6–7 | Quest, Group Harmony, Surprise Me, English UI, presentation | Not started |
 
 ## Stage 3 plan (written before implementation, 2026-10-18)
 
@@ -103,9 +104,37 @@ FastAPI skeleton (settings, CORS, JSON logs, unified error format, Swagger at `/
 - Heuristic affinities and tag rules have no offline evaluation; the feedback model is a simple transparent rule, not learned.
 - Profile is per device (no sync); the server keeps no profile.
 
-## Next: stage 5
+### Stage 5 — plan (written first) and actual results
 
-Not started (Living Route / route building). Waiting for the next prompt.
+**Plan:** self-hosted Valhalla (pedestrian costing) from the OSM Kazakhstan extract; `RoutePlanningService` (matrix + exhaustive ordering of ≤3 stops with hard time/distance/weather constraints, real geometry); client-held `RouteSession` + stateless `LivingRouteService.replan` with honest diffs; `WeatherService` on Open-Meteo with configurable comfort rules feeding both ranking and routing; `/walk` screen with a three-state bottom sheet, active-walk bar, RU/KK; docs.
+
+**Audit:** stages 1–4 intact, git clean, still no `GEMINI_API_KEY`. No blocking defects. Found during the stage: candidate retrieval for routes allowed half visits (fixed with `full_visit_fit`), the search radius for short remaining times was too small (route reach = half of the remaining time), and the outdoor limit was mislabelled as weather when it came from "go indoors" (now `indoor_cap_applied`, removed reason `outdoor_limit`).
+
+**Implemented**
+- Infra: `valhalla` service in Compose (tiles in `routing/data/`, git-ignored), `routing/prepare.sh` (resumable download — the in-container download had failed at 31 %).
+- Backend: `integrations/valhalla.py`, `services/route_planning.py`, `services/living_route.py`, `services/weather.py`, `core/weather_rules.py`, `schemas/routes.py`, `schemas/weather.py`, `api/routes.py` (`/api/routes/plan|replan|status`, `/api/weather/current|forecast`); `weather` ranking score; route-specific intent flags (`less_walking`, `go_indoor`, `finish_now`). `/api/routes/optimize` was not added: ordering is part of `plan`/`replan`.
+- Frontend: `pages/Walk.tsx`, `components/walk/*`, `components/WeatherCard.tsx`, `stores/walk.ts`, `services/routes.ts`, route line in `MapView`, entry points (Home card, AI guide answer, map card), active-walk bar, RU/KK strings (identical key sets).
+- Docs: [LIVING_ROUTE_ARCHITECTURE.md](LIVING_ROUTE_ARCHITECTURE.md), [WEATHER_INTEGRATION.md](WEATHER_INTEGRATION.md), README, MOBILE_UI.
+
+**Verified (real Valhalla, real POIs, real Open-Meteo)**
+- Pedestrian vs car vs straight line for the same pair (2.47 km / 31 min vs 3.2 km vs 1.93 km).
+- Plans: 1 POI (refused when 93 min > 90 budget), 3 POIs in 90 min (21 min walking + ≈60 visits + 3 buffer = 84, shortest of 336 orders), profile architecture+photo at slow pace (3.6 km/h), parks profile, out-of-area 422.
+- Re-planning: visited (restart from that place, 84 → 74 min), 25 min left (honest no-candidates: nothing short enough within reach), less walking (74 → 46 min, 1.6 → 0.7 km), go indoor (library/gallery, outdoor ≈7 min, correct attribution), new position near Mega Silk Way (stops replaced), interests → coffee (café added), 5 min left, stale session 409, free text without key 503.
+- Weather: real Astana data (UTC+5), comfortable today; with a lowered configured wind threshold the same 90-min plan dropped to ≈22 outdoor minutes with an indoor gallery.
+- Engine down → straight-line mode, no line drawn. Route summary guard drops LLM text with numbers not in the facts (stand-in).
+- UI (375 px, in-app browser): plan in Kazakh with the saved profile ("never" place excluded), real line and numbered stops on the map, start walk, "I visited", change sheet, go indoor, active-walk bar on the map tab, RU switch + reload keep the walk, geolocation denied and AI-unavailable messages; production build passes.
+
+**Not verified / known issues**
+- Real Gemini for free-text route changes and summaries (no key). Quick actions cover the same changes without AI.
+- Physical phones, real GPS movement and on-screen keyboards not tested.
+- Stop names keep the language in which the route was computed until the next re-plan.
+- Visit durations are category estimates; opening hours exist for few places, so "open at arrival" cannot be checked.
+- Sparse short-visit POIs near some points make short walks infeasible (reported honestly).
+- Routing data is a snapshot of the OSM extract; refresh by re-running `prepare.sh` and deleting `routing/data/valhalla_tiles*`.
+
+## Next: stage 6
+
+Not started. Waiting for the next prompt.
 
 ## Architecture decisions
 

@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink, Globe, MapPin, Phone, Sparkles } from "lucide-react";
+import { ArrowLeft, ExternalLink, Footprints, Globe, MapPin, Phone, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate, formatDistance } from "@/lib/format";
 import { usePoiDetail } from "@/hooks/usePois";
 import { useGuide } from "@/stores/guide";
+import { useWalk } from "@/stores/walk";
 import { useExplore } from "@/stores/explore";
 
 const Row = ({ label, children }: { label: string; children: ReactNode }) => (
@@ -65,6 +66,20 @@ export function PoiDetailView({ id }: { id: number }) {
         }}
       >
         <Sparkles className="h-4 w-4" /> {t("explore.toGuide")}
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="mt-2 w-full"
+        onClick={async () => {
+          const start = origin
+            ? { latitude: origin.lat, longitude: origin.lon, source: origin.source === "geolocation" ? ("geolocation" as const) : ("manual" as const) }
+            : { latitude: 51.1282, longitude: 71.4304, source: "default_city_center" as const };
+          navigate("/walk");
+          await useWalk.getState().plan({ start, time_minutes: 60, poi_ids: [poi.id] });
+        }}
+      >
+        <Footprints className="h-4 w-4" /> {t("explore.walkHere")}
       </Button>
 
       <dl className="mt-3 divide-y">

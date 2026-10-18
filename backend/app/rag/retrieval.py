@@ -70,8 +70,13 @@ def _norm(values: list[float]) -> tuple[float, float]:
 
 
 def retrieve(db: Session, emb: EmbeddingService, ctx: PersonalContext, *, query_text: str | None,
-             anchor: tuple[float, float] | None, limit: int) -> tuple[list[Candidate], int]:
-    """Returns (ranked diverse candidates, number of rows that passed the hard filters)."""
+             anchor: tuple[float, float] | None, limit: int, only_ids: set[int] | None = None,
+             explicit: bool = False) -> tuple[list[Candidate], int]:
+    """Returns (ranked diverse candidates, number of rows that passed the hard filters).
+
+    only_ids: restrict to these POIs. explicit=True means the user picked them by hand: radius, category,
+    time and "never" filters are skipped (accessibility still applies), and no diversity pruning is done.
+    """
     q_text = (query_text or "").strip() or None
     q_vec = emb.embed_query(q_text) if q_text else None
     fb = ctx.feedback
@@ -86,7 +91,13 @@ def retrieve(db: Session, emb: EmbeddingService, ctx: PersonalContext, *, query_
 
     # ---------------------------------------------------------------- hard filters
     unnamed_ok = ctx.kids or "playground" in ctx.include_categories
-    where = [or_(Poi.name.is_not(None), and_(Poi.category == "playground", literal(unnamed_ok)))]
+    where = [or_(Poi.name.is_not(None), and_(Poi.category == "playground", literal(unnamed_ok)), literal(explicit))]
+    if only_ids is not None:
+        where.append(Poi.id.in_(only_ids or {-1}))
+    if explicit:
+        if ctx.wheelchair:
+            where.append(Poi.wheelchair.in_(("yes", "designated")))
+        return _score(db, emb, ctx, q_text, q_vec, where, origin, dist, sim, psim, fsim, kw, limit, explicit=True)
     if origin is not None:
         where.append(func.ST_DWithin(Poi.geom, origin, ctx.radius_m))
     if ctx.include_categories:
@@ -105,6 +116,11 @@ def retrieve(db: Session, emb: EmbeddingService, ctx: PersonalContext, *, query_
     if blocked:
         where.append(Poi.id.not_in(blocked))
 
+    return _score(db, emb, ctx, q_text, q_vec, where, origin, dist, sim, psim, fsim, kw, limit)
+
+
+def _score(db, emb, ctx, q_text, q_vec, where, origin, dist, sim, psim, fsim, kw, limit, explicit: bool = False):
+    fb = ctx.feedback
     rows = db.execute(
         select(Poi, dist.label("d"), cast(sim, Float), cast(kw, Float), cast(psim, Float), cast(fsim, Float))
         .join(PoiIndex, PoiIndex.poi_id == Poi.id)
@@ -114,8 +130,9 @@ def retrieve(db: Session, emb: EmbeddingService, ctx: PersonalContext, *, query_
     ).all()
 
     T = ctx.time_minutes
-    if T:  # hard: getting there + at least half of a typical visit must fit
-        rows = [r for r in rows if (travel_minutes(r[1], ctx.speed_m_per_min) if r[1] is not None else 0) + VISIT_MINUTES.get(r[0].category, 20) * 0.5 <= T]
+    if T and not explicit:  # hard: getting there + at least half of a typical visit must fit (whole visit + buffer for routes)
+        share, extra = (1.0, 3) if ctx.full_visit_fit else (0.5, 0)
+        rows = [r for r in rows if (travel_minutes(r[1], ctx.speed_m_per_min) if r[1] is not None else 0) + VISIT_MINUTES.get(r[0].category, 20) * share + extra <= T]
     total = len(rows)
     if not rows:
         return [], 0
@@ -187,6 +204,15 @@ def retrieve(db: Session, emb: EmbeddingService, ctx: PersonalContext, *, query_
             signals.append(1.0 if cat in PARTNER_FRIENDLY else 0.5)
         context_s = sum(signals) / len(signals) if signals else 0.5
 
+        # ---- weather (category-level: "usually indoors / outdoors", never a claim about the building)
+        weather_s = 0.5
+        if ctx.weather is not None:
+            adverse = ctx.weather.level != "comfortable"
+            if cat in INDOOR_CATEGORIES:
+                weather_s = 1.0 if adverse else 0.6
+            elif cat in OUTDOOR_CATEGORIES:
+                weather_s = 0.2 if adverse else 0.9
+
         # ---- feedback
         fb_codes: list[str] = []
         feedback_s = 0.5
@@ -215,6 +241,7 @@ def retrieve(db: Session, emb: EmbeddingService, ctx: PersonalContext, *, query_
             "context": context_s,
             "feedback": feedback_s,
             "data": sum(has) / len(has),
+            "weather": weather_s,
         }
         final = sum(W[n] * v for n, v in scores.items())
         if fb and p.id in fb.visited:
@@ -226,6 +253,8 @@ def retrieve(db: Session, emb: EmbeddingService, ctx: PersonalContext, *, query_
         out.append(Candidate(p, d, scores, final, matched, list(dict.fromkeys(tag_facts)), fb_codes, favorite, cat_aff))
 
     out.sort(key=lambda c: c.final, reverse=True)
+    if explicit:
+        return out[:limit], total
     # relevance floor: with interests, drop unrelated categories if enough related places exist
     if ctx.interests:  # categories the user liked through feedback stay relevant too
         relevant = [c for c in out if c.cat_affinity >= 0.3 or "category_liked" in c.feedback or "similar_to_liked" in c.feedback]

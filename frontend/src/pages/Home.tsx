@@ -1,9 +1,10 @@
-import { ChevronRight, MapPin, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ChevronRight, Footprints, MapPin, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { CategoryDot } from "@/components/explore/CategoryDot";
 import { MOOD_ICONS } from "@/components/icons";
+import { WeatherCard } from "@/components/WeatherCard";
 import { getPosition } from "@/services/geo";
 import { fetchPois, type PoiItem } from "@/services/pois";
 import { searchPlaces, type AiParams, type Recommendation } from "@/services/ai";
@@ -155,6 +156,15 @@ export function Home() {
               </button>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-2">
+        <WeatherCard lat={origin?.lat} lon={origin?.lon} minutes={90} />
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <h2 className="flex items-center gap-2 font-bold"><Footprints className="h-5 w-5 text-[hsl(var(--brand))]" /> {t("home.walkTitle")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("home.walkText")}</p>
+          <Link to="/walk" className="mt-3 inline-flex h-10 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">{t("home.walkButton")}</Link>
         </div>
       </section>
 

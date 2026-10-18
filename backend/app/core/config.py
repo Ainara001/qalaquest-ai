@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     embedding_cache_dir: str | None = None
     ranking_weights: str | None = None  # JSON override of app.core.ranking.DEFAULT_WEIGHTS
 
+    # --- routing / weather (stage 5) ---
+    valhalla_url: str = "http://localhost:8002"
+    valhalla_timeout_s: float = 15.0
+    weather_url: str = "https://api.open-meteo.com/v1/forecast"
+    weather_timeout_s: float = 8.0
+    weather_cache_s: int = 600
+    weather_rules: str | None = None  # JSON override of app.core.weather_rules.DEFAULT_RULES
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

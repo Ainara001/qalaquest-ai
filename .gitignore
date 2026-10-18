@@ -19,3 +19,6 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# routing graph data (downloaded / built locally)
+routing/data/

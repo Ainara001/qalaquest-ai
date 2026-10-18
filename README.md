@@ -3,7 +3,7 @@
 **Discover Astana Your Way** — a personal AI companion for walking around Astana.
 Built for the *Build with AI* hackathon (case: NIC Smart City).
 
-> Status: **Stage 4 of 7** — personal AI: guest profile, moods, feedback learning, personal ranking.
+> Status: **Stage 5 of 7** — Living Route (real pedestrian routing, live re-planning) + Astana Weather Mode.
 > See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
 ## Stack
@@ -26,8 +26,11 @@ Built for the *Build with AI* hackathon (case: NIC Smart City).
 
 ```bash
 cp .env.example .env        # then set POSTGRES_PASSWORD
+./routing/prepare.sh        # once: downloads the OSM extract for the pedestrian router (~225 MB, resumable)
 docker compose up -d --build
 ```
+
+The first start of `valhalla` builds routing tiles (~10 minutes, ~320 MB in `routing/data/`); `GET /api/routes/status` shows when it is ready. Everything else works while it builds; routes fall back to clearly-labelled straight-line estimates.
 
 The first build downloads base images and may take a few minutes.
 Migrations are applied automatically when the backend container starts.
@@ -39,6 +42,7 @@ Migrations are applied automatically when the backend container starts.
 | Swagger  | http://localhost:8000/api/docs |
 | Health   | http://localhost:8000/api/health |
 | Postgres | localhost:5432 |
+| Valhalla | http://localhost:8002 |
 
 ## Configuration
 
@@ -122,6 +126,13 @@ Limits: 12 AI requests / minute / IP (`AI_RATE_LIMIT_PER_MIN`), messages ≤ 100
 - Ranking weights: `backend/app/core/ranking.py`, optional override `RANKING_WEIGHTS='{"interest":0.3}'`.
 - Details: [docs/PERSONALIZATION_ARCHITECTURE.md](docs/PERSONALIZATION_ARCHITECTURE.md).
 
+## Living Route and weather
+
+- `/walk` (opened from Home, the AI guide "Start a walk with these places", a map card "Walk here", or the active-walk bar): plan 1–3 places for a time budget, start, then mark places as visited, skip, or change the route (time left, less walking, go indoors, interests, another place, free text to AI, update location / weather). Each change calls the backend and shows what changed and why.
+- API: `POST /api/routes/plan`, `POST /api/routes/replan`, `GET /api/routes/status`, `GET /api/weather/current`, `GET /api/weather/forecast`.
+- External services: Valhalla (self-hosted), Open-Meteo (no key), OpenFreeMap tiles, Gemini (optional, only for free-text changes and summaries).
+- Details: [docs/LIVING_ROUTE_ARCHITECTURE.md](docs/LIVING_ROUTE_ARCHITECTURE.md), [docs/WEATHER_INTEGRATION.md](docs/WEATHER_INTEGRATION.md).
+
 ## Localisation (RU / KK)
 
 - UI: `i18next` with `frontend/src/i18n/locales/ru.json` and `kk.json`. Russian is the default; the choice is stored in `localStorage` (`qq-lang`) and switching does not reload the page or reset the map.
@@ -178,5 +189,7 @@ npm run dev        # http://localhost:5173
 backend/    FastAPI app (api, core, db, models, schemas, services, rag, integrations) + Alembic
 frontend/   React app (components, pages, layouts, hooks, services, stores, styles)
 db/         Dockerfile for PostgreSQL + PostGIS + pgvector
-docs/       PROJECT_STATUS.md, POI_DATA_PIPELINE.md, RAG_ARCHITECTURE.md, MOBILE_UI.md, PERSONALIZATION_ARCHITECTURE.md
+docs/       PROJECT_STATUS.md, POI_DATA_PIPELINE.md, RAG_ARCHITECTURE.md, MOBILE_UI.md, PERSONALIZATION_ARCHITECTURE.md,
+            LIVING_ROUTE_ARCHITECTURE.md, WEATHER_INTEGRATION.md
+routing/    prepare.sh (OSM extract download); data/ is git-ignored
 ```

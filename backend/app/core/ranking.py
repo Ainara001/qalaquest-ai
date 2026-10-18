@@ -17,6 +17,7 @@ DEFAULT_WEIGHTS: dict[str, float] = {
     "context": 0.10,    # favourite categories, indoor/outdoor, company
     "feedback": 0.10,   # learned from likes / dislikes on cards
     "data": 0.05,       # how much verified information the source has
+    "weather": 0.10,    # indoor/outdoor fit to the current weather assessment (neutral without weather)
 }
 
 # Multipliers applied after the weighted sum (soft, never re-admit filtered places).

@@ -70,6 +70,8 @@ class PersonalContext:
     profile_used: bool = False
     ignored_by_request: bool = False
     applied: list[Notice] = field(default_factory=list)
+    weather: object | None = None  # WeatherAssessment when weather mode is on
+    full_visit_fit: bool = False  # routes: the whole typical visit + buffer must fit, not just half of it
 
     def info(self) -> PersonalizationInfo:
         return PersonalizationInfo(

@@ -20,6 +20,7 @@ Rules:
 - transport: walk / bike / car / transit if stated, else null.
 - max_distance_m: only if the user gives a distance limit.
 - want_alternatives: true if the user asks for something different from what was already suggested.
+- less_walking: true if the user is tired or wants to walk less. go_indoor: true if they want to go inside (cold, wind, rain). finish_now: true if they want to end the walk.
 - ignore_preferences: true only if the user says they want something unlike their usual taste today ("сегодня хочу что-нибудь совершенно другое", "без учёта моих интересов", "мүлдем басқа нәрсе"). An exclusion like "no museums" is NOT ignore_preferences: put it in exclude_categories.
 - answer_language: set only if the user explicitly asks for a reply language; otherwise null.
 - semantic_query: up to 12 words describing the KIND of places wanted, in the user's own language, without time, budget or start point. Empty string if the message has no content about places.

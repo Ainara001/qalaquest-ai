@@ -1,11 +1,14 @@
 import { useTranslation } from "react-i18next";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Footprints } from "lucide-react";
+import { useEffect } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useViewportVars } from "@/hooks/useViewportVars";
 import { cn } from "@/lib/utils";
 import { navItems } from "@/sections";
+import { remainingMinutes, useWalk } from "@/stores/walk";
 
 const desktopLink = ({ isActive }: { isActive: boolean }) =>
   cn(
@@ -14,13 +17,19 @@ const desktopLink = ({ isActive }: { isActive: boolean }) =>
   );
 
 // Pages that fill the whole area between header and bottom bar (no page scroll).
-const FULL_BLEED = ["/map", "/guide"];
+const FULL_BLEED = ["/map", "/guide", "/walk"];
 
 export function MainLayout() {
   const { t } = useTranslation();
   const { pathname } = useLocation();
   useViewportVars();
   const full = FULL_BLEED.includes(pathname);
+  const walk = useWalk((w) => w.session);
+  const showPill = !!walk && pathname !== "/walk";
+  // the active-walk bar takes room from full-height pages instead of covering them
+  useEffect(() => {
+    document.documentElement.style.setProperty("--pill-h", showPill ? "2.75rem" : "0px");
+  }, [showPill]);
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -45,6 +54,18 @@ export function MainLayout() {
           </div>
         </div>
       </header>
+
+      {showPill && walk && (
+        <Link
+          to="/walk"
+          className="sticky z-20 flex h-11 items-center justify-center gap-2 border-b bg-accent px-4 text-sm font-medium text-accent-foreground"
+          style={{ top: "var(--header-h)" }}
+        >
+          <Footprints className="h-4 w-4" />
+          {t("walk.statusPill", { count: walk.route.stops.length, min: remainingMinutes(walk) })}
+          <span className="font-semibold underline underline-offset-2">{t("walk.open")}</span>
+        </Link>
+      )}
 
       <main
         className={cn(

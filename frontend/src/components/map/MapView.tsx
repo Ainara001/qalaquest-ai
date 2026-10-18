@@ -17,6 +17,10 @@ interface Props {
   radiusKm: number;
   aiPicks: AiPick[];
   aiFocus: number;
+  // real walking route (Valhalla legs); empty when routing is unavailable — nothing is drawn then
+  route?: number[][][];
+  routeFocus?: number;
+  showRadius?: boolean;
   picking: boolean;
   lang: string;
   theme: "light" | "dark";
@@ -60,8 +64,12 @@ export function MapView(props: Props) {
       o ? { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [o.lon, o.lat] } }] } : EMPTY,
     );
     (map.getSource("radius") as GeoJSONSource | undefined)?.setData(
-      o ? { type: "FeatureCollection", features: [circlePolygon(o.lat, o.lon, p.radiusKm)] } : EMPTY,
+      o && p.showRadius !== false ? { type: "FeatureCollection", features: [circlePolygon(o.lat, o.lon, p.radiusKm)] } : EMPTY,
     );
+    (map.getSource("route") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: (p.route ?? []).filter((g) => g.length > 1).map((g) => ({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: g } })),
+    });
     // Local labels: name:kk / name:ru when the tiles carry them, otherwise the original name.
     for (const layer of map.getStyle().layers) {
       if (layer.type !== "symbol" || layer.id.startsWith("poi-")) continue;
@@ -76,6 +84,10 @@ export function MapView(props: Props) {
     map.addSource("radius", { type: "geojson", data: EMPTY });
     map.addLayer({ id: "radius-fill", type: "fill", source: "radius", paint: { "fill-color": "#0891b2", "fill-opacity": 0.08 } });
     map.addLayer({ id: "radius-line", type: "line", source: "radius", paint: { "line-color": "#0891b2", "line-width": 2, "line-dasharray": [2, 2] } });
+
+    map.addSource("route", { type: "geojson", data: EMPTY });
+    map.addLayer({ id: "route-casing", type: "line", source: "route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#ffffff", "line-width": 9 } });
+    map.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#0f766e", "line-width": 5 } });
 
     map.addSource("pois", { type: "geojson", data: EMPTY, cluster: true, clusterRadius: 48, clusterMaxZoom: 15 });
     map.addLayer({
@@ -174,7 +186,7 @@ export function MapView(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(sync, [points, selected?.id, origin?.lat, origin?.lon, radiusKm, lang, aiPicks]);
+  useEffect(sync, [points, selected?.id, origin?.lat, origin?.lon, radiusKm, lang, aiPicks, props.route, props.showRadius]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -200,6 +212,18 @@ export function MapView(props: Props) {
     const bottom = window.innerWidth < 768 ? Math.round((box.current?.clientHeight ?? 0) * 0.5) : 0;
     map.easeTo({ center: [selected.lon, selected.lat], zoom: Math.max(map.getZoom(), 16), duration: 600, padding: { top: 70, bottom, left: 0, right: 0 } });
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Frame the whole walking route when it changes
+  useEffect(() => {
+    const map = mapRef.current;
+    const coords = (live.current.route ?? []).flat();
+    const pts = [...coords, ...live.current.aiPicks.map((a) => [a.lon, a.lat]), ...(live.current.origin ? [[live.current.origin.lon, live.current.origin.lat]] : [])];
+    if (!map || !props.routeFocus || pts.length < 2) return;
+    const b = new maplibregl.LngLatBounds();
+    pts.forEach((c) => b.extend(c as [number, number]));
+    const phone = window.innerWidth < 768;
+    map.fitBounds(b, { padding: { top: 60, bottom: phone ? Math.round((box.current?.clientHeight ?? 600) * 0.45) : 60, left: 40, right: 40 }, maxZoom: 16, duration: 600 });
+  }, [props.routeFocus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Frame the AI picks when asked ("on the map" from the guide)
   useEffect(() => {

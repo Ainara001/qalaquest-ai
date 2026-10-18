@@ -82,6 +82,9 @@ class QueryIntent(BaseModel):
     wheelchair: bool | None = None
     want_alternatives: bool = False
     ignore_preferences: bool = False
+    less_walking: bool = False  # "я устал", "хочу меньше ходить"
+    go_indoor: bool = False  # "хочу зайти в помещение", "стало холодно"
+    finish_now: bool = False  # "заканчиваю прогулку"
     answer_language: AnswerLang | None = None
     semantic_query: str = Field(default="", max_length=200)
 
@@ -119,6 +122,7 @@ class Estimate(BaseModel):
 
 
 class RankingScores(BaseModel):
+    weather: float = 0.5
     semantic: float
     interest: float
     location: float

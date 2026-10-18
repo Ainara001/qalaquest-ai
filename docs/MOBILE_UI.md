@@ -47,3 +47,10 @@ All new strings exist in `ru.json` and `kk.json` (same key set, checked by scrip
 - The bottom sheet on the map changes state by buttons (no drag gesture).
 - Desktop "AI guide" is a single centred chat column; results open on the Map tab.
 - Fonts come from Google Fonts (system fallback offline); map tiles need internet.
+
+## Stage 5 additions
+
+- **Walk screen `/walk`** (no fifth tab): full-screen map with the real walking line and numbered stops; a bottom sheet with three snap states (collapsed / half / full). Only the handle drags or toggles it, so map gestures and list scrolling are not hijacked. Contents: remaining time, walking time, distance; "what changed" card; stops with walking leg, estimated visit, hours and the buttons "I visited this place" / "Skip"; "Change route" (bottom sheet: time left, less walking, go indoors, interests, another place, write to AI, update location, update weather); "Finish walk"; "Why this route?"; compact weather.
+- **Active-walk bar** under the header on every other page ("Walk · places: 2 · 40 min left · Open route"); full-height pages subtract its height (`--pill-h`) so nothing is covered.
+- **Weather card** on Home (temperature, feels-like, wind, gusts, precipitation probability, update time, comfort advice) and in the walk sheet.
+- Location is requested only on a tap; the remaining-time counter updates once a minute locally, without polling the server or the GPS.

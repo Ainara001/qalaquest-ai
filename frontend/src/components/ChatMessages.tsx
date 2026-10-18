@@ -5,6 +5,7 @@ import { RecommendationCard } from "@/components/RecommendationCard";
 import { Button } from "@/components/ui/button";
 import type { AiResponse, Notice } from "@/services/ai";
 import { useExplore } from "@/stores/explore";
+import { useWalk } from "@/stores/walk";
 import { useGuide, type ChatMessage } from "@/stores/guide";
 
 function noticeText(n: Notice, t: (k: string, o?: Record<string, unknown>) => string): string | null {
@@ -117,6 +118,19 @@ export function ChatMessageView({ msg }: { msg: ChatMessage }) {
           {recs.map((rec, i) => (
             <RecommendationCard key={rec.poi_id} rec={rec} index={i + 1} onMap={() => showOnMap(rec.poi_id)} />
           ))}
+          <Button
+            size="sm"
+            onClick={async () => {
+              const used = r.used_location;
+              const start = used
+                ? { latitude: used.latitude, longitude: used.longitude, source: used.source === "request" ? ("manual" as const) : used.source === "anchor_poi" ? ("anchor_poi" as const) : ("default_city_center" as const), label: used.label }
+                : { latitude: 51.1282, longitude: 71.4304, source: "default_city_center" as const };
+              navigate("/walk");
+              await useWalk.getState().plan({ start, time_minutes: 90, poi_ids: recs.map((x) => x.poi_id).slice(0, 3) });
+            }}
+          >
+            {t("guide.startWalk")}
+          </Button>
           {recs.length > 1 && (
             <Button
               variant="outline"

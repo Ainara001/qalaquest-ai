@@ -8,6 +8,7 @@ import { Profile } from "@/pages/Profile";
 
 // MapLibre is large; load it only when the map page is opened.
 const MapPage = lazy(() => import("@/pages/MapPage").then((m) => ({ default: m.MapPage })));
+const Walk = lazy(() => import("@/pages/Walk").then((m) => ({ default: m.Walk })));
 
 export default function App() {
   return (
@@ -23,6 +24,14 @@ export default function App() {
           }
         />
         <Route path="explore" element={<Navigate to="/map" replace />} />
+        <Route
+          path="walk"
+          element={
+            <Suspense fallback={null}>
+              <Walk />
+            </Suspense>
+          }
+        />
         <Route path="guide" element={<Guide />} />
         <Route path="profile" element={<Profile />} />
         <Route path="*" element={<NotFound />} />

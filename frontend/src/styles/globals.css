@@ -53,7 +53,7 @@
 
 @layer utilities {
   /* page area between the sticky header and the bottom navigation, keyboard aware */
-  .page-h { height: calc(var(--vvh) - var(--header-h) - var(--nav-eff)); }
+  .page-h { height: calc(var(--vvh) - var(--header-h) - var(--nav-eff) - var(--pill-h, 0px)); }
   .pb-nav { padding-bottom: calc(var(--nav-eff) + 1rem); }
   .scroll-hide { scrollbar-width: none; }
   .scroll-hide::-webkit-scrollbar { display: none; }
