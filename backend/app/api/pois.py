@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.integrations.osm_categories import CATEGORIES, CATEGORY_LABELS
 from app.models import ImportRun, Poi
-from app.schemas.poi import CategoryCount, PoiDetail, PoiItem, PoiList, PoiStats, SourceInfo
+from app.schemas.poi import CategoryCount, PoiDetail, PoiItem, PoiList, PoiStats, SourceInfo, SuggestItem, SuggestResponse
 
 router = APIRouter(prefix="/pois", tags=["pois"])
 
@@ -19,6 +19,7 @@ LICENSE_URL = "https://www.openstreetmap.org/copyright"
 MAX_LIMIT = 100
 MAX_MAP_POINTS = 10000
 MAX_RADIUS_M = 50_000
+SUGGEST_MIN_SIMILARITY = 0.3  # pg_trgm similarity below this is noise for place names
 
 
 # ------------------------------------------------------------ dependencies
@@ -145,6 +146,54 @@ def nearby(
 ):
     f = Filters(category=category, search=search, latitude=latitude, longitude=longitude, radius=radius)
     return _list(db, f, lang, limit, offset)
+
+
+@router.get("/suggest", response_model=SuggestResponse, summary="Find a place by name: ranked by relevance, typo tolerant, no AI")
+def suggest(
+    q: Annotated[str, Query(min_length=1, max_length=100, description="Name or part of a name, any language")],
+    lang: Annotated[Lang, Depends(get_lang)],
+    db: Annotated[Session, Depends(get_db)],
+    latitude: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    longitude: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    limit: Annotated[int, Query(ge=1, le=20)] = 8,
+):
+    """Used by the map search box. Exact / prefix / substring matches on every name variant come first, then
+    trigram-similar names (pg_trgm `similarity` and `word_similarity`, so "ботаническй сад" still finds the garden);
+    ties are broken by distance when a point is given. Unnamed objects are never returned."""
+    term = q.strip()
+    if not term:
+        raise HTTPException(422, "q must not be blank")
+    if (latitude is None) != (longitude is None):
+        raise HTTPException(422, "latitude and longitude must be given together")
+    low = term.lower()
+    cols = [Poi.name, Poi.name_ru, Poi.name_kk, Poi.name_en]
+    lowered = [func.lower(c) for c in cols]
+    sim = func.greatest(*[func.coalesce(func.greatest(func.similarity(c, low), func.word_similarity(low, c)), 0.0) for c in lowered])
+    # NULL names make or_() NULL, and NULL sorts first in DESC order: coalesce to false
+    exact = func.coalesce(or_(*[c == low for c in lowered]), literal(False))
+    prefix = func.coalesce(or_(*[c.like(_like(low)[1:]) for c in lowered]), literal(False))  # "term%" (escaped)
+    contains = func.coalesce(or_(*[c.ilike(_like(term)) for c in cols]), literal(False))
+    # 1–2 letters give meaningless trigrams: only substring matches then
+    match_cond = contains if len(low) < 3 else or_(contains, sim >= SUGGEST_MIN_SIMILARITY)
+    dist = (func.ST_Distance(Poi.geom, func.ST_SetSRID(func.ST_MakePoint(longitude, latitude), 4326).cast(Poi.geom.type))
+            if latitude is not None else literal(None))
+    rows = db.execute(
+        select(Poi, sim.label("sim"), exact.label("exact"), prefix.label("prefix"), contains.label("contains"), dist.label("d"))
+        .where(Poi.name.is_not(None), match_cond)
+        .order_by(exact.desc(), prefix.desc(), contains.desc(), sim.desc(), dist.asc().nulls_last() if latitude is not None else Poi.id, Poi.id)
+        .limit(limit)
+    ).all()
+    items = [
+        SuggestItem(**_item(p, lang, d), match="exact" if ex else "prefix" if pre else "contains" if con else "similar", score=round(float(s or 0), 3))
+        for p, s, ex, pre, con, d in rows
+    ]
+    counts = dict(db.execute(select(Poi.category, func.count()).group_by(Poi.category)).all())
+    cats = [
+        CategoryCount(category=k, label=labels[lang], count=counts[k])
+        for k, labels in CATEGORY_LABELS.items()
+        if counts.get(k) and any(low in label.lower() or label.lower() in low for label in labels.values())
+    ]
+    return SuggestResponse(query=term, items=items, categories=cats)
 
 
 @router.get("/categories", response_model=list[CategoryCount], summary="Categories with object counts")

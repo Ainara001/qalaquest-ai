@@ -27,20 +27,30 @@ ProfileInterest = Literal[
     "unusual", "family", "sport", "quiet", "active", "culture_events", "free",
 ]
 
-Mood = Literal["relax", "adventure", "inspiration", "unusual", "active", "quiet", "photo", "family", "just_walk"]
+# Moods of the current walk. The UI offers the nine of stage 6 (MAP_MOODS); "inspiration" and "quiet" are kept so that
+# walks and requests saved by earlier versions stay valid.
+Mood = Literal[
+    "relax", "adventure", "romantic", "photo", "learn", "active", "family", "unusual", "just_walk",
+    "inspiration", "quiet",
+]
+MAP_MOODS = ("relax", "adventure", "romantic", "photo", "learn", "active", "family", "unusual", "just_walk")
 
-# A mood is a temporary set of weighted interests for the current walk only.
+# A mood is a temporary set of weighted interests for the current walk only. It is a ranking preference:
+# it never says that a place IS calm, romantic or uncrowded (we have no data for that).
 MOOD_INTERESTS: dict[str, dict[str, float]] = {
     "relax": {"relax": 1, "parks": 0.8, "quiet": 0.6, "coffee": 0.5},
     "adventure": {"unusual": 1, "active": 0.7, "beautiful": 0.5},
-    "inspiration": {"art": 1, "architecture": 0.8, "culture": 0.7},
-    "unusual": {"unusual": 1, "art": 0.5},
-    "active": {"active": 1, "sport": 0.8, "parks": 0.5},
-    "quiet": {"quiet": 1, "parks": 0.7},
+    "romantic": {"romantic": 1, "beautiful": 0.7, "parks": 0.5},
     "photo": {"photo": 1, "beautiful": 0.8, "architecture": 0.6},
+    "learn": {"history": 1, "museums": 0.9, "culture": 0.8, "architecture": 0.5},
+    "active": {"active": 1, "sport": 0.8, "parks": 0.5},
     "family": {"family": 1, "parks": 0.6},
-    "just_walk": {"parks": 0.8, "beautiful": 0.6},
+    "unusual": {"unusual": 1, "art": 0.5, "beautiful": 0.3},
+    "just_walk": {"parks": 0.8, "beautiful": 0.6, "nature": 0.5},
+    "inspiration": {"art": 1, "architecture": 0.8, "culture": 0.7},
+    "quiet": {"quiet": 1, "parks": 0.7},
 }
+assert set(MOOD_INTERESTS) == set(get_args(Mood)), "MOOD_INTERESTS is out of sync with Mood"
 
 # interest -> category -> weight (0..1)
 AFFINITY: dict[str, dict[str, float]] = {

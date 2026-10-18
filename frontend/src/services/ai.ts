@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { WeatherAssessment } from "./routes";
 
 export type Interest =
   | "beautiful" | "photo" | "unusual" | "culture" | "history" | "nature" | "quiet" | "active"
@@ -35,6 +36,9 @@ export interface Explanation {
   feedback: string[];
   constraints: Notice[];
   facts_used: string[];
+  // stage 6: the mood of this walk and whether the weather favoured this kind of place
+  mood?: string | null;
+  weather_fit?: "indoor_in_adverse_weather" | "outdoor_in_good_weather" | null;
   scores: Record<"semantic" | "interest" | "location" | "time" | "budget" | "context" | "feedback" | "data" | "weather" | "final", number>;
 }
 export interface PersonalizationInfo {
@@ -88,12 +92,15 @@ export interface AiResponse {
   used_location: { latitude: number; longitude: number; source: "request" | "anchor_poi" | "default_city_center"; label: string | null } | null;
   explanation_unavailable: boolean;
   personalization: PersonalizationInfo | null;
+  weather?: WeatherAssessment | null;
 }
 
 export interface SearchResult {
   results: Recommendation[];
   notices: Notice[];
   personalization: PersonalizationInfo | null;
+  used_location: AiResponse["used_location"];
+  weather?: WeatherAssessment | null;
 }
 
 export const searchPlaces = (body: Record<string, unknown>, signal?: AbortSignal) =>

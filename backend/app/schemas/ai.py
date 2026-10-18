@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.rag.taxonomy import CategoryKey, Interest
 from app.schemas.personalization import PersonalizationInput
+from app.schemas.weather import WeatherAssessment
 
 AiLang = Literal["ru", "kk"]
 AnswerLang = Literal["ru", "kk", "en"]
@@ -31,6 +32,7 @@ class AiRequest(BaseModel):
     interests: list[Interest] | None = Field(default=None, max_length=8)  # session-only hints from the profile page
     anchor_poi_id: int | None = Field(default=None, ge=1)  # "start from this place" (from the map)
     personalization: PersonalizationInput | None = None
+    use_weather: bool = False  # stage 6: also rank with the current weather assessment
 
     @field_validator("message")
     @classmethod
@@ -59,6 +61,8 @@ class SearchRequest(BaseModel):
     transport: Transport = "walk"
     limit: int = Field(default=10, ge=1, le=20)
     personalization: PersonalizationInput | None = None
+    use_weather: bool = False  # stage 6: rank with the current weather assessment of the start point
+    exclude_poi_ids: list[int] = Field(default_factory=list, max_length=100)
 
 
 # ------------------------------------------------- LLM structured outputs
@@ -150,6 +154,9 @@ class Explanation(BaseModel):
     constraints: list["Notice"]  # hard/soft conditions applied to the whole search
     facts_used: list[str]  # source fields that exist for this place
     scores: RankingScores
+    # stage 6: what came from where — the mood of this walk and the weather assessment (category-level)
+    mood: str | None = None
+    weather_fit: Literal["indoor_in_adverse_weather", "outdoor_in_good_weather"] | None = None
 
 
 class Recommendation(BaseModel):
@@ -230,6 +237,7 @@ class AiResponse(BaseModel):
     meta: SearchMeta | None = None
     personalization: PersonalizationInfo | None = None
     session_id: str | None = None
+    weather: WeatherAssessment | None = None  # set when the weather was used for ranking
 
 
 class SearchResult(BaseModel):
@@ -238,5 +246,6 @@ class SearchResult(BaseModel):
     used_location: UsedLocation | None
     notices: list[Notice]
     meta: SearchMeta
+    weather: WeatherAssessment | None = None  # set when the weather was used for ranking
 
 Explanation.model_rebuild()

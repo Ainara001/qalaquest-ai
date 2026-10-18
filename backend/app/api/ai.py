@@ -13,6 +13,7 @@ from app.schemas.ai import AiRequest, AiResponse, ChatRequest, SearchRequest, Se
 from app.services.ai_guard import RateLimiter, deduper, limiter, sessions
 from app.services.llm import LLMInvalidOutput, LLMUnavailable, get_llm
 from app.services.recommendation import RecommendationService
+from app.services.weather import get_weather
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 search_limiter = RateLimiter(60)  # retrieval only (no Gemini calls): a looser limit
@@ -30,7 +31,7 @@ UNAVAILABLE = {
 
 
 def _service() -> RecommendationService:
-    return RecommendationService(get_llm(), get_embedding_service(), SessionLocal)
+    return RecommendationService(get_llm(), get_embedding_service(), SessionLocal, get_weather())
 
 
 def _client(request: Request) -> str:

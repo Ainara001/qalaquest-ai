@@ -29,7 +29,8 @@ from app.services.llm import LLMInvalidOutput, LLMService, LLMUnavailable
 from app.services.personalization import PersonalContext, PersonalizationService
 from app.services.query_understanding import LANG_NAME, understand
 from app.services.route_planning import PACE_KMH, RoutePlanningService
-from app.services.weather import WeatherService, WeatherUnavailable
+from app.services.context import assess_weather
+from app.services.weather import WeatherService
 
 log = logging.getLogger("living_route")
 POOL = 8
@@ -92,16 +93,7 @@ class LivingRouteService:
             return ctx, cands
 
     async def _weather(self, use: bool, at: tuple[float, float], minutes: int) -> tuple[WeatherAssessment | None, list[Notice]]:
-        if not use:
-            return None, [Notice(code="weather_off")]
-        try:
-            rep = await self.weather.report(at[0], at[1], window_minutes=max(30, minutes))
-        except WeatherUnavailable:
-            return None, [Notice(code="weather_unavailable")]
-        notes = [Notice(code="weather_stale")] if rep.stale else []
-        if rep.assessment.level != "comfortable":
-            notes.append(Notice(code="weather_adapted", params={"conditions": ",".join(rep.assessment.conditions)}))
-        return rep.assessment, notes
+        return await assess_weather(self.weather, use, at, minutes)
 
     def _pace(self, p: PersonalizationInput | None, sprefs: SessionPrefs) -> str:
         if sprefs.less_walking:

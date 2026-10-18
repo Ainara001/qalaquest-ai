@@ -18,6 +18,7 @@ Interests → real data (`backend/app/rag/taxonomy.py`):
 - `INTEREST_TAGS`: interest → supporting OSM tags (`historic=*`, `artwork_type`, `cuisine=coffee_shop`, `sport`, `fee=no`, …); a match is shown to the user as evidence;
 - `INTEREST_PHRASES`: a short ru/kk/en description per interest; their e5 embeddings, weighted by the user's interests, form a **taste vector** compared with each POI embedding in pgvector.
 - Moods are temporary weighted interest sets (`MOOD_INTERESTS`), e.g. "relax" → relax 1.0, parks 0.8, quiet 0.6, coffee 0.5.
+  Stage 6 moods (`MAP_MOODS`): relax (calm rest), adventure, romantic, photo (beautiful photos), learn (educational walk), active, family, unusual ("surprise me"), just_walk; `inspiration` and `quiet` remain accepted for older clients. A mood is a ranking preference for the current walk, never a claim that a place is calm, romantic or uncrowded. Every card's `explanation.mood` and the `mood` source of `matched_interests` show what the mood contributed.
 
 Budget: OSM has almost no prices (1 POI with `fee=no`, 0 with `charge` in this dataset). Therefore
 - **"Only free" is strict**: only places whose source confirms free access (`fee=no`). If there are none, the user is told so (`no_confirmed_free`) and can explicitly ask to "show parks and squares whose price is not stated" — those are then labelled as unconfirmed.

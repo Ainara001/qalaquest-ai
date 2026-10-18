@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -16,6 +18,11 @@ class PoiItem(BaseModel):
     address: str | None
     distance_m: float | None = None
     distance_method: str | None = None  # how distance_m was computed
+
+
+class SuggestItem(PoiItem):
+    match: Literal["exact", "prefix", "contains", "similar"]  # how the name matched (no AI involved)
+    score: float  # trigram similarity 0..1 of the best name variant
 
 
 class PoiList(BaseModel):
@@ -46,6 +53,12 @@ class CategoryCount(BaseModel):
     category: str
     label: str
     count: int
+
+
+class SuggestResponse(BaseModel):
+    query: str
+    items: list[SuggestItem]  # best name matches first
+    categories: list[CategoryCount]  # categories whose name matches the query ("кафе", "мұражай")
 
 
 class SourceInfo(BaseModel):

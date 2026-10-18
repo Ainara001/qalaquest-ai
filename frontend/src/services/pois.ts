@@ -92,5 +92,25 @@ export const fetchPoi = (id: number, lang: string, origin: PoiQuery["origin"], s
   return api<PoiDetail>(`/api/pois/${id}?${p}`, { signal });
 };
 
+export interface SuggestItem extends PoiItem {
+  match: "exact" | "prefix" | "contains" | "similar";
+  score: number;
+}
+export interface SuggestResponse {
+  query: string;
+  items: SuggestItem[];
+  categories: CategoryCount[];
+}
+
+/** Name search ranked by relevance (typo tolerant, database only — never calls the LLM). */
+export const suggestPois = (q: string, lang: string, origin: PoiQuery["origin"], signal?: AbortSignal, limit = 8) => {
+  const p = new URLSearchParams({ q, lang, limit: String(limit) });
+  if (origin) {
+    p.set("latitude", String(origin.lat));
+    p.set("longitude", String(origin.lon));
+  }
+  return api<SuggestResponse>(`/api/pois/suggest?${p}`, { signal });
+};
+
 export const fetchCategories = (lang: string) => api<CategoryCount[]>(`/api/pois/categories?lang=${lang}`);
 export const fetchStats = () => api<PoiStats>("/api/pois/stats");

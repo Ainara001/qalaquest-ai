@@ -42,6 +42,8 @@ class Candidate:
     feedback: list[str] = field(default_factory=list)
     favorite: bool = False
     cat_affinity: float = 0.0
+    # set when the weather assessment favoured this place's category (category-level, not about the building)
+    weather_fit: str | None = None  # indoor_in_adverse_weather | outdoor_in_good_weather
 
 
 def travel_minutes(distance_m: float, speed_m_per_min: float) -> int:
@@ -206,12 +208,15 @@ def _score(db, emb, ctx, q_text, q_vec, where, origin, dist, sim, psim, fsim, kw
 
         # ---- weather (category-level: "usually indoors / outdoors", never a claim about the building)
         weather_s = 0.5
+        weather_fit = None
         if ctx.weather is not None:
             adverse = ctx.weather.level != "comfortable"
             if cat in INDOOR_CATEGORIES:
                 weather_s = 1.0 if adverse else 0.6
+                weather_fit = "indoor_in_adverse_weather" if adverse else None
             elif cat in OUTDOOR_CATEGORIES:
                 weather_s = 0.2 if adverse else 0.9
+                weather_fit = None if adverse else "outdoor_in_good_weather"
 
         # ---- feedback
         fb_codes: list[str] = []
@@ -250,7 +255,7 @@ def _score(db, emb, ctx, q_text, q_vec, where, origin, dist, sim, psim, fsim, kw
         if fb and p.id in fb.not_interested:
             final *= NOT_INTERESTED_MULTIPLIER
             fb_codes.append("marked_not_interested")
-        out.append(Candidate(p, d, scores, final, matched, list(dict.fromkeys(tag_facts)), fb_codes, favorite, cat_aff))
+        out.append(Candidate(p, d, scores, final, matched, list(dict.fromkeys(tag_facts)), fb_codes, favorite, cat_aff, weather_fit))
 
     out.sort(key=lambda c: c.final, reverse=True)
     if explicit:
