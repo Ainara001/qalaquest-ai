@@ -9,7 +9,9 @@ import { create } from "zustand";
  */
 export type Mood = "relax" | "adventure" | "romantic" | "photo" | "learn" | "active" | "family" | "unusual" | "just_walk";
 // order of the mood picker (stage 6 list)
-export const MOODS: Mood[] = ["relax", "adventure", "romantic", "photo", "learn", "active", "family", "unusual", "just_walk"];
+// stage 7 list: Calm, Photo, Adventure, With children, Romance, Culture, Surprise me (+ "No mood" = reset).
+// "active" and "just_walk" stay valid for the backend but are no longer offered.
+export const MOODS: Mood[] = ["relax", "photo", "adventure", "family", "romantic", "learn", "unusual"];
 
 export type SessionBudget = "free" | "2000" | "5000" | "10000";
 export const TIME_OPTIONS = [30, 60, 90, 120, 180] as const;

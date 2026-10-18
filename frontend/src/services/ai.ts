@@ -70,6 +70,7 @@ export interface Recommendation {
   visit_estimate: Estimate | null;
   opening_hours: string | null;
   hours_status: "known" | "unknown";
+  open_status?: "open" | "closed" | "unknown";
   website: string | null;
   phone: string | null;
   wheelchair: string | null;

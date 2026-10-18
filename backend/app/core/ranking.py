@@ -22,6 +22,7 @@ DEFAULT_WEIGHTS: dict[str, float] = {
 
 # Multipliers applied after the weighted sum (soft, never re-admit filtered places).
 VISITED_MULTIPLIER = 0.6        # "already been here" while looking for new places
+CLOSED_MULTIPLIER = 0.35        # parseable OSM hours say the place is closed when the user would arrive
 NOT_INTERESTED_MULTIPLIER = 0.4  # "not interesting" on this exact place
 DIVERSITY_DISCOUNT = 0.85        # per already chosen place of the same category
 

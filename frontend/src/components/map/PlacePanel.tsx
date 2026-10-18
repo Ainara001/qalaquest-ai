@@ -1,3 +1,4 @@
+import { OpenBadge } from "@/components/OpenBadge";
 import { ArrowLeft, Bookmark, ChevronDown, CloudSun, ExternalLink, Footprints, Globe, Heart, Info, MapPin, Phone, Smile, Sparkles, ThumbsUp, User, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -144,7 +145,10 @@ export function PlacePanel({ id }: { id: number }) {
           </span>
         </Row>
         <Row label={t("poi.hours")}>
-          {poi.opening_hours ? <span className="font-mono text-xs">{poi.opening_hours}</span> : <span className="text-muted-foreground">{t("poi.hoursUnknown")}</span>}
+          <span className="flex flex-wrap items-center gap-2">
+            <OpenBadge status={poi.open_status} />
+            {poi.opening_hours ? <span className="font-mono text-xs">{poi.opening_hours}</span> : <span className="text-muted-foreground">{t("poi.hoursUnknown")}</span>}
+          </span>
         </Row>
         {facts.length > 0 && (
           <Row label={t("place.confirmed")}>

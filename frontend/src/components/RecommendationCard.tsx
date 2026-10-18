@@ -1,3 +1,4 @@
+import { OpenBadge } from "@/components/OpenBadge";
 import { ExternalLink, Map as MapIcon, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CategoryDot } from "@/components/explore/CategoryDot";
@@ -50,7 +51,7 @@ export function RecommendationCard({ rec, index, onMap }: { rec: Recommendation;
           {rec.travel_estimate && <li>{t("guide.card.travel", { min: rec.travel_estimate.minutes })}</li>}
           {rec.visit_estimate && <li>{t("guide.card.visit", { min: rec.visit_estimate.minutes })}</li>}
           <li>
-            <span className="font-medium text-foreground">{t("guide.card.hours")}:</span>{" "}
+            <span className="font-medium text-foreground">{t("guide.card.hours")}:</span> <OpenBadge status={rec.open_status} />{" "}
             {rec.opening_hours ? <span className="font-mono text-xs">{rec.opening_hours}</span> : t("guide.card.hoursUnknown")}
           </li>
           <li>{t(`guide.card.fee.${rec.fee}`)}</li>

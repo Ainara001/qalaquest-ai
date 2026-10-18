@@ -37,6 +37,7 @@ class PoiDetail(PoiItem):
     description: str | None  # localized description tag if present, else generic OSM description
     description_lang: str | None  # language of `description`, None = unspecified by OSM
     opening_hours: str | None
+    open_status: str = "unknown"  # open | closed | unknown — computed now from OSM opening_hours (Astana time)
     website: str | None
     phone: str | None
     wheelchair: str | None

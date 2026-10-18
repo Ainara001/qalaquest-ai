@@ -1,4 +1,4 @@
-import { Clock, LayoutGrid, LocateFixed, Loader2, SlidersHorizontal, Smile, Wallet, X } from "lucide-react";
+import { Accessibility, Baby, Clock, Coffee, Footprints, LayoutGrid, LocateFixed, Loader2, SlidersHorizontal, Smile, Utensils, Wallet, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MOOD_ICONS } from "@/components/icons";
 import { useLocate } from "@/hooks/useLocate";
@@ -7,6 +7,16 @@ import { useWalkContext } from "@/stores/context";
 import { useExplore } from "@/stores/explore";
 import { useMapUi } from "@/stores/mapui";
 import { personalizationOn, useProfile } from "@/stores/profile";
+
+/** Everyday intents (stage 7): one tap shows real places of these categories on the map and in "Places for you". */
+export const INTENTS = {
+  eat: { icon: Utensils, categories: ["restaurant", "cafe"] },
+  coffee: { icon: Coffee, categories: ["cafe"] },
+  walk: { icon: Footprints, categories: ["park", "promenade", "public_space", "attraction", "monument", "architecture", "viewpoint"] },
+  kids: { icon: Baby, categories: ["playground", "park", "attraction", "museum"] },
+} as const;
+type IntentKey = keyof typeof INTENTS;
+const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
 function Chip({ on, onClick, children, label }: { on: boolean; onClick: () => void; children: React.ReactNode; label?: string }) {
   return (
@@ -38,11 +48,31 @@ export function FilterChips() {
   const prof = useProfile();
   const loc = useLocate();
   const MoodIcon = c.mood ? MOOD_ICONS[c.mood] : Smile;
-  const extra = [c.withChildren, !c.useWeather, !c.recLayer, prof.prefs.wheelchair, !personalizationOn(prof) && prof.personalize === false].filter(Boolean).length;
+  const extra = [!c.useWeather, !c.recLayer, !personalizationOn(prof) && prof.personalize === false].filter(Boolean).length;
   const firstCat = ex.categories[0];
+
+  const activeIntent = (Object.keys(INTENTS) as IntentKey[]).find((k) => same(ex.categories, INTENTS[k].categories)) ?? null;
+  const toggleIntent = (k: IntentKey) => {
+    const on = activeIntent === k;
+    ex.setCategories(on ? [] : [...INTENTS[k].categories]);
+    if (k === "kids") c.setWithChildren(!on);
+    ui.setListMode("for_you");
+    if (ui.panel === "results" && ui.sheet === "collapsed") ui.setSheet("half");
+  };
 
   return (
     <div className="scroll-hide -mx-3 flex gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:flex-wrap md:px-0">
+      {(Object.keys(INTENTS) as IntentKey[]).map((k) => {
+        const Icon = INTENTS[k].icon;
+        return (
+          <Chip key={k} on={activeIntent === k} onClick={() => toggleIntent(k)}>
+            <Icon className="h-4 w-4" /> {t(`filters.intent.${k}`)}
+          </Chip>
+        );
+      })}
+      <Chip on={prof.prefs.wheelchair} onClick={() => prof.setPrefs({ wheelchair: !prof.prefs.wheelchair })} label={t("filters.wheelchair")}>
+        <Accessibility className="h-4 w-4" /> {t("filters.intent.accessible")}
+      </Chip>
       <Chip on={!!c.mood} onClick={() => ui.setPicker("mood")}>
         <MoodIcon className="h-4 w-4" /> {c.mood ? t(`moodShort.${c.mood}`) : t("filters.mood")}
       </Chip>
@@ -63,7 +93,7 @@ export function FilterChips() {
       <Chip on={!!c.budget} onClick={() => ui.setPicker("budget")}>
         <Wallet className="h-4 w-4" /> {c.budget ? t(`filters.budgetValue.${c.budget}`) : t("filters.budget")}
       </Chip>
-      <Chip on={ex.categories.length > 0} onClick={() => ui.setPicker("categories")}>
+      <Chip on={ex.categories.length > 0 && !activeIntent} onClick={() => ui.setPicker("categories")}>
         <LayoutGrid className="h-4 w-4" />
         {firstCat ? `${t(`categories.${firstCat}`)}${ex.categories.length > 1 ? ` +${ex.categories.length - 1}` : ""}` : t("filters.categories")}
       </Chip>

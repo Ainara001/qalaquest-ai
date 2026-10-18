@@ -176,6 +176,8 @@ class Recommendation(BaseModel):
     visit_estimate: Estimate | None  # typical for the category, NOT place-specific
     opening_hours: str | None
     hours_status: Literal["known", "unknown"]
+    # stage 7: computed from OSM opening_hours for the estimated arrival (Astana time); "unknown" = not confirmed
+    open_status: Literal["open", "closed", "unknown"] = "unknown"
     website: str | None
     phone: str | None
     wheelchair: str | None

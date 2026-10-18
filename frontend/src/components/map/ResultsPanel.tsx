@@ -1,3 +1,4 @@
+import { OpenBadge } from "@/components/OpenBadge";
 import { CloudSun, Footprints, Heart, Info, MapPin, MessageCircle, RefreshCw, Route, Smile, Sparkles, ThumbsUp, User, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -78,6 +79,7 @@ export function RecRow({ rec, n, onOpen }: { rec: Recommendation; n: number; onO
           <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5"><CategoryDot category={rec.category} /> {t(`categorySingular.${rec.category}`)}</span>
             {rec.distance_m !== null && <span>· {formatDistance(rec.distance_m, t)}</span>}
+            <OpenBadge status={rec.open_status} />
           </span>
           <span className="mt-1.5 block space-y-0.5">
             {reasons.slice(0, 3).map((r) => {

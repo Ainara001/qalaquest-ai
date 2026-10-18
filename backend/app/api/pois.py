@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from sqlalchemy import Select, desc, func, literal, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.opening_hours import status as hours_status
 from app.db.session import get_db
 from app.integrations.osm_categories import CATEGORIES, CATEGORY_LABELS
 from app.models import ImportRun, Poi
@@ -273,7 +274,7 @@ def get_poi(
         names={"original": poi.name, "ru": poi.name_ru, "kk": poi.name_kk, "en": poi.name_en},
         description=own_desc or poi.description,
         description_lang=lang if own_desc else None,
-        opening_hours=poi.opening_hours, website=poi.website, phone=poi.phone,
+        opening_hours=poi.opening_hours, open_status=hours_status(poi.opening_hours), website=poi.website, phone=poi.phone,
         wheelchair=poi.wheelchair, indoor_outdoor=poi.indoor_outdoor, wikidata=poi.wikidata,
         source=poi.source, source_url=poi.source_url, source_updated_at=poi.source_updated_at,
         attribution=ATTRIBUTION, tags=poi.tags,

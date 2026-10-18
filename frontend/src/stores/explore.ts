@@ -30,6 +30,7 @@ interface ExploreState {
   geo: LocateState; // last geolocation attempt (shared by every "my location" control)
   setGeo: (g: LocateState) => void;
   toggleCategory: (c: string) => void;
+  setCategories: (c: string[]) => void;
   setSearch: (s: string) => void;
   setRadiusKm: (r: number) => void;
   setOrigin: (o: Origin | null) => void;
@@ -52,6 +53,7 @@ export const useExplore = create<ExploreState>((set) => ({
   selectedId: null,
   geo: "idle",
   setGeo: (geo) => set({ geo }),
+  setCategories: (categories) => set({ categories }),
   toggleCategory: (c) =>
     set((s) => ({ categories: s.categories.includes(c) ? s.categories.filter((x) => x !== c) : [...s.categories, c] })),
   setSearch: (search) => set({ search }),

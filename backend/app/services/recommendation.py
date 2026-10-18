@@ -134,7 +134,7 @@ def _card(c: Candidate, lang: str, ctx: PersonalContext, pick=None) -> Recommend
         distance_method="geodesic_straight_line" if d is not None else None,
         travel_estimate=Estimate(minutes=travel_minutes(d, ctx.speed_m_per_min), basis=f"straight_line_x1.3_{ctx.transport}_{ctx.speed_m_per_min}m_per_min") if d else None,
         visit_estimate=Estimate(minutes=VISIT_MINUTES.get(p.category, 20), basis="typical_for_category"),
-        opening_hours=p.opening_hours, hours_status="known" if p.opening_hours else "unknown",
+        opening_hours=p.opening_hours, hours_status="known" if p.opening_hours else "unknown", open_status=c.open_status,
         website=p.website, phone=p.phone, wheelchair=p.wheelchair, fee=_fee(p),
         source=Source(name=p.source, url=p.source_url, attribution=ATTRIBUTION),
         confidence=_confidence(p, lang),
@@ -156,6 +156,7 @@ def _facts(c: Candidate, lang: str) -> dict:
         "cuisine": tags.get("cuisine"),
         "fee_in_source": tags.get("fee"),
         "opening_hours_in_source": p.opening_hours,
+        "open_at_arrival_computed": c.open_status if c.open_status != "unknown" else None,
         "wheelchair_in_source": p.wheelchair,
         "why": {k: v for k, v in {
             "matched_interests": [{"interest": i, "source": s} for i, s in c.matched],

@@ -27,6 +27,7 @@ export interface PoiDetail extends PoiItem {
   description: string | null;
   description_lang: string | null;
   opening_hours: string | null;
+  open_status?: "open" | "closed" | "unknown";
   website: string | null;
   phone: string | null;
   wheelchair: string | null;

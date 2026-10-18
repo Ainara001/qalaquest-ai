@@ -15,7 +15,10 @@ from dataclasses import dataclass, field
 from sqlalchemy import Float, and_, cast, func, literal, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.ranking import DIVERSITY_DISCOUNT, NOT_INTERESTED_MULTIPLIER, VISITED_MULTIPLIER, weights
+from datetime import datetime, timedelta, timezone
+
+from app.core.opening_hours import status as hours_status
+from app.core.ranking import CLOSED_MULTIPLIER, DIVERSITY_DISCOUNT, NOT_INTERESTED_MULTIPLIER, VISITED_MULTIPLIER, weights
 from app.models import Poi, PoiIndex
 from app.rag.embeddings import EmbeddingService
 from app.rag.taxonomy import (
@@ -44,6 +47,7 @@ class Candidate:
     cat_affinity: float = 0.0
     # set when the weather assessment favoured this place's category (category-level, not about the building)
     weather_fit: str | None = None  # indoor_in_adverse_weather | outdoor_in_good_weather
+    open_status: str = "unknown"  # open | closed | unknown — from OSM opening_hours at the estimated arrival time
 
 
 def travel_minutes(distance_m: float, speed_m_per_min: float) -> int:
@@ -249,13 +253,18 @@ def _score(db, emb, ctx, q_text, q_vec, where, origin, dist, sim, psim, fsim, kw
             "weather": weather_s,
         }
         final = sum(W[n] * v for n, v in scores.items())
+        # opening hours (stage 7): only parseable OSM hours count; unknown hours are neither a plus nor a minus
+        arrival = datetime.now(timezone.utc) + timedelta(minutes=travel)
+        open_st = hours_status(p.opening_hours, arrival)
+        if open_st == "closed":
+            final *= CLOSED_MULTIPLIER
         if fb and p.id in fb.visited:
             final *= VISITED_MULTIPLIER
             fb_codes.append("visited_before")
         if fb and p.id in fb.not_interested:
             final *= NOT_INTERESTED_MULTIPLIER
             fb_codes.append("marked_not_interested")
-        out.append(Candidate(p, d, scores, final, matched, list(dict.fromkeys(tag_facts)), fb_codes, favorite, cat_aff, weather_fit))
+        out.append(Candidate(p, d, scores, final, matched, list(dict.fromkeys(tag_facts)), fb_codes, favorite, cat_aff, weather_fit, open_st))
 
     out.sort(key=lambda c: c.final, reverse=True)
     if explicit:
