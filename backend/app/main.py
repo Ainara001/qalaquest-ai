@@ -22,8 +22,39 @@ log = logging.getLogger("app")
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # Load the embedding model in the background so the first AI request is not slow.
-    threading.Thread(target=lambda: get_embedding_service().warm_up(), daemon=True).start()
+    if settings.auto_bootstrap_data:
+        threading.Thread(target=_bootstrap_data, daemon=True).start()
+    else:
+        threading.Thread(target=lambda: get_embedding_service().warm_up(), daemon=True).start()
     yield
+
+
+def _bootstrap_data() -> None:
+    """Fill an empty database with real OSM POIs and (re)build missing embeddings. Idempotent."""
+    from sqlalchemy import func, select
+
+    from app.db.session import SessionLocal
+    from app.models import Poi
+
+    blog = logging.getLogger("bootstrap")
+    try:
+        with SessionLocal() as s:
+            count = s.scalar(select(func.count()).select_from(Poi))
+        if not count:
+            from app.integrations.overpass import DEFAULT_ENDPOINTS, OverpassClient
+            from app.services.poi_import import run_import
+
+            blog.info("database is empty: importing POIs from OpenStreetMap")
+            client = OverpassClient(endpoints=DEFAULT_ENDPOINTS, user_agent="QalaQuestAI/0.2 (hackathon project)")
+            try:
+                result = run_import(SessionLocal, client, None, dry_run=False, pause=3.0)
+            finally:
+                client.close()
+            blog.info("import: %s %s", result["status"], result["totals"])
+        stats = get_embedding_service().index_all(SessionLocal)  # only new or changed POIs
+        blog.info("index: %s", stats)
+    except Exception:
+        blog.exception("bootstrap failed")
 
 
 app = FastAPI(

@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,8 +35,19 @@ class Settings(BaseSettings):
     weather_timeout_s: float = 8.0
     weather_cache_s: int = 600
     weather_rules: str | None = None  # JSON override of app.core.weather_rules.DEFAULT_RULES
+    # Hosts without a shell (e.g. Render free): on startup, import POIs if the DB is empty and build the index
+    auto_bootstrap_data: bool = False
     # --- events (stage 7): JSON list of verified iCal sources; empty = no sources connected (nothing is shown)
     event_sources: str | None = None
+
+    @field_validator("database_url")
+    @classmethod
+    def _psycopg_driver(cls, v: str) -> str:
+        # hosting panels give "postgres://" / "postgresql://"; SQLAlchemy needs the psycopg 3 driver name
+        for prefix in ("postgres://", "postgresql://"):
+            if v.startswith(prefix):
+                return "postgresql+psycopg://" + v[len(prefix):]
+        return v
 
     @property
     def cors_origin_list(self) -> list[str]:
