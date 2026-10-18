@@ -338,6 +338,17 @@ export function Profile() {
         <p className="text-sm text-muted-foreground">{t("profile.geoText")}</p>
       </Section>
 
+      <Section icon={<ShieldCheck className="h-5 w-5" />} title={t("howAi.title")}>
+        <ol className="space-y-2.5">
+          {(t("howAi.blocks", { returnObjects: true }) as { h: string; p: string }[]).map((b, i) => (
+            <li key={i} className="text-sm">
+              <p className="font-semibold">{i + 1}. {b.h}</p>
+              <p className="text-muted-foreground">{b.p}</p>
+            </li>
+          ))}
+        </ol>
+      </Section>
+
       <Section icon={<Info className="h-5 w-5" />} title={t("profile.about")}>
         <p className="text-sm text-muted-foreground">{t("profile.aboutText", { version: __APP_VERSION__ })}</p>
         <DataInfo />

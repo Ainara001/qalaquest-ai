@@ -3,7 +3,12 @@
 **Discover Astana Your Way** — a personal AI companion for walking around Astana.
 Built for the *Build with AI* hackathon (case: NIC Smart City).
 
-> Status: **Stage 6 of 7** — map-first redesign, mood-aware map, AI Quest, Group Harmony, Surprise Me
+> Status: **Stage 7 of 7 (in progress)** — intent chips, opening hours, honest accessibility, real Gemini verified,
+> jury documents: [scenarios](docs/HACKATHON_USER_SCENARIOS.md), [RAG for jury](docs/RAG_EXPLAINED_FOR_JURY.md),
+> [privacy & verification](docs/PRIVACY_ETHICS_AND_VERIFICATION.md), [limitations](docs/KNOWN_LIMITATIONS.md),
+> [pitch](docs/PITCH_5_7_MIN.md), [video guide](docs/VIDEO_CAPTURE_GUIDE.md). To-do: [STAGE7_TODO_AND_CRITERIA.md](docs/STAGE7_TODO_AND_CRITERIA.md).
+>
+> Previously: **Stage 6 of 7** — map-first redesign, mood-aware map, AI Quest, Group Harmony, Surprise Me
 > (on top of stage 5: Living Route + Astana Weather Mode). See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md);
 > the stage 6 audit, plan and file-by-file change log are in [docs/STAGE6_AUDIT_AND_PLAN.md](docs/STAGE6_AUDIT_AND_PLAN.md)
 > and [docs/STAGE6_CHANGELOG.md](docs/STAGE6_CHANGELOG.md).
@@ -59,7 +64,7 @@ All settings come from environment variables (see [.env.example](.env.example)).
 | `VITE_API_URL` | Backend URL as seen from the browser. **Baked in at frontend build time** — rebuild the frontend after changing it |
 | `APP_ENV`, `LOG_LEVEL` | Runtime mode and log level |
 | `GEMINI_API_KEY` | Enables AI recommendations (https://aistudio.google.com/apikey). Without it search works, AI answers return a clear "not configured" error |
-| `GEMINI_MODEL` | Optional. Empty = newest `gemini-*-flash` available to your key is picked automatically |
+| `GEMINI_MODEL` | Recommended `gemini-flash-latest` (`gemini-2.5-flash` is closed for new keys). Empty = newest `gemini-*-flash` is picked automatically |
 | `OVERPASS_URLS` | Optional, comma-separated Overpass endpoints (defaults to public instances, tried in turn on failure) |
 | `OVERPASS_USER_AGENT` | Optional User-Agent for Overpass requests; set it to something that identifies you |
 

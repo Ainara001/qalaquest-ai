@@ -12,7 +12,7 @@ _Last updated: 2026-10-18 (stage 6)_
 | 4 | Personal AI: profile, moods, feedback, personal ranking | **Done**; real Gemini still unverified (no key) |
 | 5 | Living Route (real pedestrian routing, re-planning) + Astana Weather Mode | **Done**; Gemini-dependent parts (free-text route changes, route summaries) unverified with the real API (no key) |
 | 6 | Map-first UX, Mood-Aware Map, AI Quest, Group Harmony, Surprise Me | **Implemented** in branches `stage6/01…12` (not merged into `main`; the last one contains everything); verified with unit tests and in the browser against a scratch API that runs the real services on synthetic rows — **not yet run against the real database, Valhalla or Gemini** (see "Stage 6") |
-| 7 | English UI, presentation | Not started |
+| 7 | Final MVP (map intents, hours, accessibility, events, jury materials) | **In progress** (branch `stage7/01-gemini-and-map-chips`): real Gemini verified; intent chips; opening-hours status; entrance/path accessibility; jury documents. Not done: events layer, accessibility features import, presentation file, video — see [STAGE7_TODO_AND_CRITERIA.md](STAGE7_TODO_AND_CRITERIA.md) |
 
 ## Stage 3 plan (written before implementation, 2026-10-18)
 
