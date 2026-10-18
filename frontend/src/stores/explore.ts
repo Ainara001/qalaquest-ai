@@ -13,7 +13,7 @@ export interface AiPick {
   lat: number;
   lon: number;
   name: string | null;
-  n: number;
+  n: number | string; // label of the pin: 1–3 for ranked picks, a symbol for a single highlighted place
 }
 
 interface ExploreState {

@@ -20,11 +20,14 @@ in what mood" the same way, so they cannot drift into incompatible recommendatio
 
 Persistent preferences and current filters stay separate: the profile is only used with `use_profile=true`.
 """
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.rag.taxonomy import CategoryKey
-from app.schemas.ai import AiLang, GeoPoint
+from app.schemas.ai import AiLang, GeoPoint, Notice, Recommendation, UsedLocation
 from app.schemas.personalization import PersonalizationInput
+from app.schemas.weather import WeatherAssessment
 
 
 class RecommendationContext(BaseModel):
@@ -40,3 +43,28 @@ class RecommendationContext(BaseModel):
     # places not to offer again in this session (e.g. earlier Surprise Me results); not a persistent dislike
     exclude_poi_ids: list[int] = Field(default_factory=list, max_length=100)
     personalization: PersonalizationInput | None = None
+
+
+# ------------------------------------------------------------------ Surprise Me (stage 6)
+
+class SurpriseRequest(RecommendationContext):
+    """`exclude_poi_ids` carries the places already offered in this session, so "another option" never repeats."""
+
+    seed: int | None = Field(default=None, ge=0, le=2_147_483_647)  # reproducible draws in tests; omitted by the app
+
+
+class SurpriseResponse(BaseModel):
+    status: Literal["ok", "no_results"]
+    place: Recommendation | None  # a real POI card built from the database record
+    # why it was chosen (codes rendered by the UI): mood, interests, new_category, unusual_category,
+    # indoor_in_adverse_weather, outdoor_in_good_weather, close, not_shown_before
+    reasons: list[str]
+    novelty: float | None  # 1.0 = a category new for this user (history-based, not popularity)
+    relevance: float | None  # personal ranking, normalised within the candidate pool
+    idea_source: Literal["ai", "category", "none"]  # "category" = generic idea for this kind of place, shown as such
+    travel_minutes: int | None  # straight line × 1.3 at the user's pace — an estimate, not a route
+    visit_minutes: int | None  # typical for the category — an estimate
+    pool_size: int  # relevant candidates the draw was made from
+    used_location: UsedLocation
+    notices: list[Notice]
+    weather: WeatherAssessment | None = None

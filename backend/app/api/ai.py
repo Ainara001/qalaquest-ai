@@ -10,9 +10,11 @@ from app.db.session import SessionLocal, get_db
 from app.models import PoiIndex
 from app.rag.embeddings import get_embedding_service
 from app.schemas.ai import AiRequest, AiResponse, ChatRequest, SearchRequest, SearchResult
+from app.schemas.context import SurpriseRequest, SurpriseResponse
 from app.services.ai_guard import RateLimiter, deduper, limiter, sessions
 from app.services.llm import LLMInvalidOutput, LLMUnavailable, get_llm
 from app.services.recommendation import RecommendationService
+from app.services.surprise import SurpriseRecommendationService
 from app.services.weather import get_weather
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -88,6 +90,24 @@ async def chat(req: ChatRequest, request: Request, db: Annotated[Session, Depend
     _ensure_index(db)
     key = deduper.key("chat", _client(request), req.model_dump_json())
     return await _guarded(request, key, lambda: _service().recommend(req, sessions.get(req.session_id), req.session_id))
+
+
+@router.post("/surprise", response_model=SurpriseResponse, summary="Surprise me: one relevant real place that is new for this user")
+async def surprise(req: SurpriseRequest, request: Request, db: Annotated[Session, Depends(get_db)]):
+    _ensure_index(db)
+    key = deduper.key("surprise", _client(request), req.model_dump_json())
+
+    async def run() -> SurpriseResponse:
+        pick, used, notices, weather = await SurpriseRecommendationService(_service(), get_weather()).surprise(req, req.seed)
+        if pick is None:
+            return SurpriseResponse(status="no_results", place=None, reasons=[], novelty=None, relevance=None, idea_source="none",
+                                    travel_minutes=None, visit_minutes=None, pool_size=0, used_location=used, notices=notices, weather=weather)
+        return SurpriseResponse(status="ok", place=pick.card, reasons=pick.reasons, novelty=pick.novelty, relevance=pick.relevance,
+                                idea_source=pick.idea_source, travel_minutes=pick.travel_minutes, visit_minutes=pick.visit_minutes,
+                                pool_size=pick.pool_size, used_location=used, notices=notices, weather=weather)
+
+    # without Gemini this is retrieval only, so the looser limit applies; with it, the AI limit protects the quota
+    return await _guarded(request, key, run, limiter if get_llm().configured else search_limiter)
 
 
 @router.delete("/chat/{session_id}", status_code=204, summary="Forget the conversation context of a session")

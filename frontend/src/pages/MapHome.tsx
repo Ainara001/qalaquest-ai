@@ -7,8 +7,10 @@ import { MapSheet } from "@/components/map/MapSheet";
 import { MapView, type Highlight } from "@/components/map/MapView";
 import { MapPickers } from "@/components/map/Pickers";
 import { PlaceHeader, PlacePanel } from "@/components/map/PlacePanel";
+import { QuickActions } from "@/components/map/QuickActions";
 import { ResultsHeader, ResultsPanel } from "@/components/map/ResultsPanel";
 import { SearchBar, SearchPanel } from "@/components/map/Search";
+import { SurpriseHeader, SurprisePanel } from "@/components/map/SurprisePanel";
 import { ActiveWalkPanel, PlanWalkPanel, RoutePreviewPanel, WalkHeader } from "@/components/walk/WalkPanels";
 import { useLocate } from "@/hooks/useLocate";
 import { useMapPoints, usePoiQuery } from "@/hooks/usePois";
@@ -20,6 +22,7 @@ import { useMapUi, type SheetState } from "@/stores/mapui";
 import { useProfile } from "@/stores/profile";
 import { TOP_PINS, useRecs } from "@/stores/recs";
 import { useTheme } from "@/stores/theme";
+import { useSurprise } from "@/stores/surprise";
 import { remainingMinutes, useWalk } from "@/stores/walk";
 
 const SHEET_PX: Record<SheetState, (h: number) => number> = { collapsed: () => 116, half: (h) => h * 0.5, full: (h) => h - 116 };
@@ -53,6 +56,7 @@ export function MapHome() {
   const walk = useWalk();
   const aiPicksFromGuide = useExplore((s) => s.aiPicks);
   const guidePending = useGuide((g) => g.pending);
+  const surprisePlace = useSurprise((s) => s.result?.place ?? null);
   const query = usePoiQuery();
   const points = useMapPoints(query);
   const locate = useLocate();
@@ -97,6 +101,11 @@ export function MapHome() {
     }
   }, [recs.status, recs.results]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // frame a new surprise
+  useEffect(() => {
+    if (ui.panel === "surprise" && surprisePlace) ex.focusAiPicks();
+  }, [surprisePlace?.poi_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // frame a new route / walk change
   const routeKey = (ui.panel === "route" ? walk.draft?.computed_at : walk.proposal?.route.computed_at ?? walk.session?.route.computed_at) ?? null;
   useEffect(() => {
@@ -114,15 +123,16 @@ export function MapHome() {
   const shownRoute = ui.panel === "route" ? walk.draft : walk.proposal && ui.panel === "walk" ? walk.proposal.route : walk.session?.route ?? null;
   const pins: AiPick[] = useMemo(() => {
     if (routeMode && shownRoute) return shownRoute.stops.map((s, i) => ({ id: s.poi_id, lat: s.latitude, lon: s.longitude, name: s.name, n: i + 1 }));
+    if (ui.panel === "surprise") return surprisePlace ? [{ id: surprisePlace.poi_id, lat: surprisePlace.latitude, lon: surprisePlace.longitude, name: surprisePlace.name, n: "?" }] : [];
     if (ui.showAiAnswer) return aiPicksFromGuide;
     if (!ctx.recLayer) return [];
     return recs.results.slice(0, TOP_PINS).map((r, i) => ({ id: r.poi_id, lat: r.latitude, lon: r.longitude, name: r.name, n: i + 1 }));
-  }, [routeMode, shownRoute, ui.showAiAnswer, aiPicksFromGuide, ctx.recLayer, recs.results]);
+  }, [routeMode, shownRoute, ui.panel, surprisePlace, ui.showAiAnswer, aiPicksFromGuide, ctx.recLayer, recs.results]);
   const highlights: Highlight[] = useMemo(
-    () => (routeMode || ui.showAiAnswer || !ctx.recLayer ? [] : recs.results.slice(TOP_PINS).map((r) => ({ id: r.poi_id, lat: r.latitude, lon: r.longitude }))),
-    [routeMode, ui.showAiAnswer, ctx.recLayer, recs.results],
+    () => (routeMode || ui.showAiAnswer || ui.panel === "surprise" || !ctx.recLayer ? [] : recs.results.slice(TOP_PINS).map((r) => ({ id: r.poi_id, lat: r.latitude, lon: r.longitude }))),
+    [routeMode, ui.showAiAnswer, ui.panel, ctx.recLayer, recs.results],
   );
-  const dimBase = routeMode || ui.showAiAnswer || (ctx.recLayer && (!!ctx.mood || ctx.aiWishes.interests.length > 0));
+  const dimBase = routeMode || ui.showAiAnswer || ui.panel === "surprise" || (ctx.recLayer && (!!ctx.mood || ctx.aiWishes.interests.length > 0));
   const geometry = useMemo(() => (shownRoute?.legs ?? []).map((l) => l.geometry), [shownRoute]);
   const selected = useMemo(() => {
     if (ex.selectedId === null) return null;
@@ -156,6 +166,10 @@ export function MapHome() {
     case "plan":
       header = <WalkHeader mode="plan" />;
       body = <PlanWalkPanel />;
+      break;
+    case "surprise":
+      header = <SurpriseHeader />;
+      body = <SurprisePanel />;
       break;
     default:
       header = <ResultsHeader />;
@@ -195,6 +209,14 @@ export function MapHome() {
           <div role="alert" className="absolute left-1/2 top-[8.5rem] z-10 -translate-x-1/2 rounded-md border bg-card px-3 py-1.5 text-xs shadow md:top-3">{t("explore.mapLoadError")}</div>
         )}
 
+        {/* contextual modes (phones): above the sheet, left of the map buttons */}
+        <div
+          className={cn("absolute left-3 right-16 z-10 transition-[bottom] duration-200 md:hidden", (ui.sheet === "full" || ex.picking) && "hidden")}
+          style={{ bottom: `${Math.round(sheetPx) + 12}px` }}
+        >
+          <QuickActions />
+        </div>
+
         {/* floating actions: weather, recommendation layer, my location */}
         <div
           className={cn("absolute right-3 z-10 flex flex-col items-end gap-2 transition-[bottom] duration-200 md:!bottom-4", ui.sheet === "full" && "max-md:hidden")}
@@ -231,6 +253,7 @@ export function MapHome() {
         <div className="absolute inset-x-0 top-0 z-30 space-y-2 px-3 pt-[calc(var(--safe-t)+0.75rem)] md:static md:z-auto md:space-y-3 md:p-0">
           <SearchBar />
           <FilterChips />
+          <QuickActions className="hidden md:flex" />
           {ex.picking && (
             <div className="flex items-center justify-between gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-lg">
               {t("explore.pickHint")}
