@@ -1,4 +1,5 @@
 import logging
+import os
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -45,7 +46,8 @@ def _bootstrap_data() -> None:
             from app.services.poi_import import run_import
 
             blog.info("database is empty: importing POIs from OpenStreetMap")
-            client = OverpassClient(endpoints=DEFAULT_ENDPOINTS, user_agent="QalaQuestAI/0.2 (hackathon project)")
+            urls = os.getenv("OVERPASS_URLS")
+            client = OverpassClient(endpoints=[u.strip() for u in urls.split(",")] if urls else DEFAULT_ENDPOINTS, user_agent="QalaQuestAI/0.2 (hackathon project)")
             try:
                 result = run_import(SessionLocal, client, None, dry_run=False, pause=3.0)
             finally:
