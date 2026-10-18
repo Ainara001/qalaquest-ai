@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     gemini_model: str | None = None
     gemini_timeout_s: float = 30.0
     gemini_max_concurrency: int = 3
+    gemini_thinking_budget: int = 0  # 0 = no "thinking" tokens for structured output (faster, no truncated JSON)
     ai_rate_limit_per_min: int = 12  # per client IP, across /api/ai/*
     embedding_model: str = "intfloat/multilingual-e5-large"
     embedding_dim: int = 1024

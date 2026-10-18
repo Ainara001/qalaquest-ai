@@ -35,6 +35,7 @@ class LLMService:
         self._model: str | None = self._configured_model
         self._timeout = s.gemini_timeout_s
         self._sem = asyncio.Semaphore(s.gemini_max_concurrency)
+        self._thinking_budget = s.gemini_thinking_budget
         self._client = None
 
     @property
@@ -84,6 +85,8 @@ class LLMService:
         if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
             return LLMUnavailable("timeout")
         code = getattr(exc, "code", None)
+        if code == 404:  # model retired / not available for this key (e.g. gemini-2.5-flash for new users)
+            return LLMUnavailable("no_model")
         if code == 429:
             return LLMUnavailable("rate_limited")
         if code in (400, 401, 403):
@@ -107,6 +110,9 @@ class LLMService:
             response_schema=schema,
             temperature=temperature,
             max_output_tokens=max_output_tokens,
+            # current flash models "think" by default; those tokens count against max_output_tokens and can cut the
+            # JSON short. Structured extraction/explanations do not need it (every answer is validated anyway).
+            thinking_config=types.ThinkingConfig(thinking_budget=self._thinking_budget),
         )
         last: LLMUnavailable | None = None
         async with self._sem:
