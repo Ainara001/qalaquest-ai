@@ -71,6 +71,8 @@ def status(db: Annotated[Session, Depends(get_db)]):
         "llm_model": llm.model,
         "embedding_model": emb.model_name,
         "embedding_ready": emb.ready,
+        # lexical = no vectors (free host): keywords, names, categories from the AI's reading of the request, ranking
+        "retrieval_mode": "lexical" if emb.lexical else "hybrid",
         "indexed_pois": db.scalar(select(func.count()).select_from(PoiIndex)) or 0,
     }
 

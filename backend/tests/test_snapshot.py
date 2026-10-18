@@ -25,3 +25,18 @@ def test_snapshot_roundtrip(tmp_path):
 def test_bundled_snapshot_is_readable():
     snap = SnapshotClient("data/osm_snapshot.json.gz")
     assert len(snap.data) >= 10
+
+
+def test_lexical_mode_has_no_vectors(monkeypatch):
+    from app.core.config import get_settings
+    from app.rag.embeddings import EmbeddingService
+
+    monkeypatch.setenv("EMBEDDING_MODEL", "none")
+    get_settings.cache_clear()
+    try:
+        e = EmbeddingService()
+        assert e.lexical and e.ready
+        assert e.embed_query("кофе") is None
+        assert e.embed_passages(["a", "b"]) == [None, None]
+    finally:
+        get_settings.cache_clear()

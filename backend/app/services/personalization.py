@@ -95,6 +95,8 @@ def _interest_vector(emb: EmbeddingService, weighted: dict[str, float]) -> list[
             continue
         if interest not in _phrase_cache:
             _phrase_cache[interest] = emb.embed_query(phrase)
+        if _phrase_cache[interest] is None:  # lexical mode: no vectors
+            return None
         vecs.append(_phrase_cache[interest])
         ws.append(w)
     if not vecs:
@@ -120,7 +122,8 @@ def build_feedback(db: Session, fb: FeedbackSummary) -> FeedbackModel:
 
     positive = {pid: (2.0 if pid in set(fb.more_like) else 1.0) for pid in {*fb.liked, *fb.more_like} if pid in cat_of}
     if len(positive) >= MIN_POSITIVE_FOR_VECTOR:
-        rows = db.execute(select(PoiIndex.poi_id, PoiIndex.embedding).where(PoiIndex.poi_id.in_(positive))).all()
+        rows = db.execute(select(PoiIndex.poi_id, PoiIndex.embedding)
+                          .where(PoiIndex.poi_id.in_(positive), PoiIndex.embedding.is_not(None))).all()
         if len(rows) >= MIN_POSITIVE_FOR_VECTOR:
             v = np.average(np.array([np.array(e) for _, e in rows]), axis=0, weights=[positive[i] for i, _ in rows])
             model.liked_vector = (v / (np.linalg.norm(v) or 1)).tolist()

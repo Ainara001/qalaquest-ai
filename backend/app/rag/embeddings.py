@@ -29,13 +29,19 @@ class EmbeddingService:
         self._lock = threading.Lock()
 
     @property
+    def lexical(self) -> bool:
+        # EMBEDDING_MODEL=none: no vectors at all (hosts without RAM for a model and without embedding quota);
+        # the index keeps documents + full-text vectors, retrieval uses keywords, names, categories and ranking
+        return self.model_name.lower() == "none"
+
+    @property
     def remote(self) -> bool:
         # "gemini-embedding-001": vectors from the Gemini API, no model in memory (hosts with 512 MB RAM)
         return self.model_name.startswith("gemini")
 
     @property
     def ready(self) -> bool:
-        return self._model is not None
+        return self.lexical or self._model is not None
 
     def _load(self):
         with self._lock:
@@ -55,7 +61,8 @@ class EmbeddingService:
         return self._model
 
     def warm_up(self) -> None:
-        self._load()
+        if not self.lexical:
+            self._load()
 
     def _embed_remote(self, texts: list[str], task: str) -> list[list[float]]:
         import time
@@ -93,10 +100,14 @@ class EmbeddingService:
             raise RuntimeError(f"model returns {len(vectors[0])}-d vectors, configured {self.dim}")
         return vectors
 
-    def embed_query(self, query: str) -> list[float]:
+    def embed_query(self, query: str) -> list[float] | None:
+        if self.lexical:
+            return None
         return self._embed([f"{self._q}{query}"], "RETRIEVAL_QUERY")[0]
 
-    def embed_passages(self, docs: list[str]) -> list[list[float]]:
+    def embed_passages(self, docs: list[str]) -> list[list[float] | None]:
+        if self.lexical:
+            return [None] * len(docs)
         return self._embed([f"{self._p}{d}" for d in docs])
 
     # ------------------------------------------------------------ indexing
@@ -118,7 +129,7 @@ class EmbeddingService:
                     todo.append((p.id, doc, h))
 
         # remote free tier counts every text: 90 per batch, one batch a minute, leaving room for user queries
-        batch = 90 if self.remote else BATCH
+        batch = 90 if self.remote else 500 if self.lexical else BATCH
         for i in range(0, len(todo), batch):
             chunk = todo[i : i + batch]
             if self.remote and i:
