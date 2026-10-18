@@ -147,10 +147,10 @@ FastAPI skeleton (settings, CORS, JSON logs, unified error format, Swagger at `/
 5. `stage6/05-surprise-me` — `SurpriseRecommendationService`, `POST /api/ai/surprise`, card with "show on map" / "another option".
 6. `stage6/06-ai-quest` — `QuestGenerationService`, `POST /api/ai/quests/generate`, 6 quest types, 2–5 tasks bound to POI ids on a real route, client-held progress (pending/active/completed/skipped).
 7. `stage6/07-group-harmony` — `GroupRecommendationService`, `POST /api/ai/groups/recommend`, per-member normalised fit, least-satisfied objective, explained compromise.
-8. `stage6/08-docs-verification` — unit tests (`backend/tests`, 17), weather fail-fast for the map, shared place-detail request, error boundary, MapLibre in its own chunk, docs ([MAP_FIRST_UX.md](MAP_FIRST_UX.md), [ADVANCED_AI_FEATURES.md](ADVANCED_AI_FEATURES.md), README, MOBILE_UI, RAG_ARCHITECTURE, this file).
+8. `stage6/08-docs-verification` — unit tests (`backend/tests`), weather fail-fast for the map, shared place-detail request, error boundary, MapLibre in its own chunk, docs ([MAP_FIRST_UX.md](MAP_FIRST_UX.md), [ADVANCED_AI_FEATURES.md](ADVANCED_AI_FEATURES.md), README, MOBILE_UI, RAG_ARCHITECTURE, this file).
 
 **Verified (this machine)**
-- `npm run build` (tsc + vite) passes; RU/KK key sets identical (811 keys each), no raw keys on screen; `pytest`: 17 passed.
+- `npm run build` (tsc + vite) passes; RU/KK key sets identical (811 keys each), no raw keys on screen; `pytest`: 38 passed (algorithms + request validation of the new endpoints).
 - Scenario 1 (mood): "Beautiful photos" → architecture / monuments / public spaces; "Calm rest" → parks / promenades / café, reasons by source; with "very cold" weather a romantic mood moves a café and a restaurant up with "because of the weather".
 - Scenario 2 (quick search): typing a name → ranked suggestions → place card in one tap → **Route** → route preview with time and distance; a request in words → AI path (without a key: clear `ai_not_configured` message with retry).
 - Scenario 3 (AI Quest): photo hunt / city secrets created from candidate POIs, honest notices when few places fit, start → active task → done → next; quest stops and bar on the map.
@@ -165,7 +165,7 @@ FastAPI skeleton (settings, CORS, JSON logs, unified error format, Swagger at `/
 - Physical phones, real GPS and on-screen keyboards not tested (emulation only). In the in-app browser the map canvas does not repaint while the pane is hidden (environment artefact; a forced redraw showed all layers).
 - The place-name / AI-request detection is a heuristic; the other option is always offered in the search panel.
 - Group fit and Surprise novelty are category- and tag-level calculations (documented), not judgements about specific places; OSM data stays sparse (prices, accessibility, hours).
-- Branches are not merged into `main`; `main` was not touched.
+- Branches are not merged into `main`; `main` was not touched. Later branches: `stage6/09-polish` (P2: peek of the best place, mood hint, "plan a walk" entry) and `stage6/10-hardening` (review fixes, API validation tests). **The newest branch contains everything.**
 - `ghcr.io/valhalla/valhalla-scripted:latest` is still unpinned (reproducibility; not changed because the matching tag could not be checked here).
 
 ## Next: stage 7

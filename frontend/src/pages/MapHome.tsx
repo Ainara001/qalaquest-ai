@@ -71,6 +71,7 @@ export function MapHome() {
   const root = useRef<HTMLDivElement>(null);
   const [params, setParams] = useSearchParams();
   const [finishedNote, setFinishedNote] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false); // base map tiles/style could not be loaded (OpenFreeMap down / offline)
   const [routeFocus, setRouteFocus] = useState(0);
   const [, setTick] = useState(0);
   useRecommendationSync();
@@ -228,10 +229,13 @@ export function MapHome() {
             ex.setOrigin({ lat, lon, source: "manual" });
             ui.setSheet("half");
           }}
-          onError={() => undefined}
+          onError={() => setMapFailed(true)}
         />
+        {mapFailed && (
+          <div role="alert" className="absolute left-1/2 top-[11rem] z-10 -translate-x-1/2 rounded-md border bg-card px-3 py-1.5 text-xs shadow md:top-12">{t("explore.mapLoadError")}</div>
+        )}
         {points.error && (
-          <div role="alert" className="absolute left-1/2 top-[8.5rem] z-10 -translate-x-1/2 rounded-md border bg-card px-3 py-1.5 text-xs shadow md:top-3">{t("explore.mapLoadError")}</div>
+          <div role="alert" className="absolute left-1/2 top-[8.5rem] z-10 -translate-x-1/2 rounded-md border bg-card px-3 py-1.5 text-xs shadow md:top-3">{t("explore.pointsLoadError")}</div>
         )}
 
         {/* contextual modes (phones): above the sheet, left of the map buttons */}

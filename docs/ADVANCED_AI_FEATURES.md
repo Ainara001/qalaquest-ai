@@ -89,6 +89,6 @@ Example from the spec (test rows): A — architecture, photo; B — coffee, calm
 
 ## Verification status
 
-- Unit tests (`backend/tests/test_stage6.py`, no DB/network/key): moods, context priorities, Surprise novelty and draw, quest tasks, group objective and constraints, weather fail-fast — 17 passed.
+- Unit tests (`backend/tests/test_stage6.py`, no DB/network/key): moods, context priorities, Surprise novelty and draw, quest tasks, group objective and constraints, weather fail-fast; request validation of the new endpoints (`test_api_validation.py`: 2–5 members, unknown fields and moods, quest types and task counts, suggest parameters) — 38 passed.
 - UI flows in the in-app browser against a scratch API that runs these real services on synthetic rows (no PostgreSQL/PostGIS, Valhalla or Gemini on that machine): six "another option" draws → six different places; photo / city-secrets quests with progress; three-member group with an honest compromise.
 - **Not verified with the real database, Valhalla or Gemini.** To verify: `docker compose up`, import and index POIs, then call the three endpoints (Swagger at `/api/docs`) and the scenarios in [PROJECT_STATUS.md](PROJECT_STATUS.md).

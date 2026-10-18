@@ -126,7 +126,8 @@ class GroupRecommendationService:
         p.profile = None
         p.session = SessionPreferences(
             time_minutes=common["time_minutes"], budget=common["budget"],
-            company="family" if common["with_children"] else "friends",
+            # only children change the company signal; "a group" says nothing about friends, a couple or colleagues
+            company="family" if common["with_children"] else None,
             interests=[i for i, _ in sorted(interests.items(), key=lambda x: -x[1])][:8],
         )
         p.wheelchair = p.wheelchair or common["wheelchair"]
