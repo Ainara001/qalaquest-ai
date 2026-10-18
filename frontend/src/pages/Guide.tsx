@@ -1,8 +1,11 @@
-import { ArrowUp, MapPin, MessageSquarePlus, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { ArrowUp, MapPin, MessageSquarePlus, SlidersHorizontal, Smile, Sparkles, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChatMessageView, Thinking } from "@/components/ChatMessages";
+import { MOOD_ICONS } from "@/components/icons";
+import { MoodPicker } from "@/components/map/Pickers";
+import { useWalkContext } from "@/stores/context";
 import { cn } from "@/lib/utils";
 import { useGuide } from "@/stores/guide";
 import { isConfigured, personalizationOn, useProfile } from "@/stores/profile";
@@ -13,6 +16,9 @@ export function Guide() {
   const { t } = useTranslation();
   const { messages, pending, send, clear, anchor, setAnchor } = useGuide();
   const prof = useProfile();
+  const walkCtx = useWalkContext();
+  const [moodOpen, setMoodOpen] = useState(false);
+  const MoodIcon = walkCtx.mood ? MOOD_ICONS[walkCtx.mood] : Smile;
   const personalOn = personalizationOn(prof);
   const configured = isConfigured(prof.prefs) || Object.values(prof.feedback).some((l) => l.length > 0);
   const [text, setText] = useState("");
@@ -100,12 +106,25 @@ export function Guide() {
               <SlidersHorizontal className="h-3.5 w-3.5" /> {t("guide.personalizeSetup")}
             </Link>
           )}
-          {prof.mood && (
+          {/* the same mood as on the map: changing it here changes the map's recommendations too */}
+          <button
+            type="button"
+            onClick={() => setMoodOpen(true)}
+            className={cn("flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium", walkCtx.mood ? "border-primary bg-accent text-accent-foreground" : "bg-background text-muted-foreground")}
+          >
+            <MoodIcon className="h-3.5 w-3.5" />
+            {walkCtx.mood ? t("guide.moodChip", { mood: t(`moodShort.${walkCtx.mood}`) }) : t("filters.mood")}
+          </button>
+          {walkCtx.timeMinutes && (
             <span className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 text-xs font-medium text-accent-foreground">
-              {t("guide.moodChip", { mood: t(`mood.${prof.mood}`) })}
-              <button type="button" onClick={() => prof.setMood(null)} aria-label={t("common.clear")}>
-                <X className="h-3.5 w-3.5" />
-              </button>
+              {t("filters.timeValue", { n: walkCtx.timeMinutes })}
+              <button type="button" onClick={() => walkCtx.setTime(null)} aria-label={t("common.clear")}><X className="h-3.5 w-3.5" /></button>
+            </span>
+          )}
+          {walkCtx.budget && (
+            <span className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 text-xs font-medium text-accent-foreground">
+              {t(`filters.budgetValue.${walkCtx.budget}`)}
+              <button type="button" onClick={() => walkCtx.setBudget(null)} aria-label={t("common.clear")}><X className="h-3.5 w-3.5" /></button>
             </span>
           )}
         </div>
@@ -113,7 +132,7 @@ export function Guide() {
           <div className="mb-2 flex">
             <span className="flex max-w-full items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
               <MapPin className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{t("home.startPoint", { label: anchor.name ?? "" })}</span>
+              <span className="truncate">{t("guide.startPoint", { label: anchor.name ?? "" })}</span>
               <button type="button" onClick={() => setAnchor(null)} aria-label={t("common.clear")} className="shrink-0">
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -164,6 +183,7 @@ export function Guide() {
           </button>
         </form>
       </div>
+      <MoodPicker open={moodOpen} onClose={() => setMoodOpen(false)} />
     </div>
   );
 }

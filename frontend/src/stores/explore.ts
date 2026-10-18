@@ -6,6 +6,8 @@ export interface Origin {
   source: "geolocation" | "manual";
 }
 
+export type LocateState = "idle" | "locating" | "denied" | "unavailable" | "unsupported";
+
 export interface AiPick {
   id: number;
   lat: number;
@@ -25,6 +27,8 @@ interface ExploreState {
   origin: Origin | null;
   picking: boolean;
   selectedId: number | null;
+  geo: LocateState; // last geolocation attempt (shared by every "my location" control)
+  setGeo: (g: LocateState) => void;
   toggleCategory: (c: string) => void;
   setSearch: (s: string) => void;
   setRadiusKm: (r: number) => void;
@@ -46,6 +50,8 @@ export const useExplore = create<ExploreState>((set) => ({
   origin: null,
   picking: false,
   selectedId: null,
+  geo: "idle",
+  setGeo: (geo) => set({ geo }),
   toggleCategory: (c) =>
     set((s) => ({ categories: s.categories.includes(c) ? s.categories.filter((x) => x !== c) : [...s.categories, c] })),
   setSearch: (search) => set({ search }),

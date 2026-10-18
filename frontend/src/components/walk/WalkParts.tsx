@@ -93,7 +93,11 @@ export function StopList({ route, onVisited, onSkip, busy }: { route: Route; onV
 
 export function Notices({ route }: { route: Route }) {
   const { t } = useTranslation();
-  const items = [...route.notices, ...route.explanation.weather_effect].map((n) => noticeText(n, t)).filter(Boolean);
+  // "routing_unavailable" is said once, by the straight-line banner below
+  const items = [...route.notices, ...route.explanation.weather_effect]
+    .filter((n) => !(route.status === "straight_line_only" && n.code === "routing_unavailable"))
+    .map((n) => noticeText(n, t))
+    .filter(Boolean);
   if (route.status === "straight_line_only") items.unshift(t("walk.straightLine"));
   if (!items.length) return null;
   return (

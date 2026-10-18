@@ -22,6 +22,8 @@
     --header-h: 3.5rem;
     --nav-h: 3.75rem;
     --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+    --header-eff: calc(var(--header-h) + var(--safe-t)); /* header height actually taken on this screen */
     --vvh: 100dvh; /* replaced by the visual viewport height in JS (keyboard aware) */
     --nav-eff: calc(var(--nav-h) + var(--safe-b));
   }
@@ -43,6 +45,10 @@
     :root { --nav-eff: 0px; }
   }
   html.kb-open { --nav-eff: 0px; }
+  /* phones: the map screen has no header (search sits on the map) */
+  @media (max-width: 767px) {
+    html.map-screen { --header-eff: 0px; }
+  }
 
   * { @apply border-border; }
   html { -webkit-text-size-adjust: 100%; }
@@ -53,7 +59,7 @@
 
 @layer utilities {
   /* page area between the sticky header and the bottom navigation, keyboard aware */
-  .page-h { height: calc(var(--vvh) - var(--header-h) - var(--nav-eff) - var(--pill-h, 0px)); }
+  .page-h { height: calc(var(--vvh) - var(--header-eff) - var(--nav-eff) - var(--pill-h, 0px)); }
   .pb-nav { padding-bottom: calc(var(--nav-eff) + 1rem); }
   .scroll-hide { scrollbar-width: none; }
   .scroll-hide::-webkit-scrollbar { display: none; }

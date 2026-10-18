@@ -4,7 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { RecommendationCard } from "@/components/RecommendationCard";
 import { Button } from "@/components/ui/button";
 import type { AiResponse, Notice } from "@/services/ai";
+import { useWalkContext } from "@/stores/context";
 import { useExplore } from "@/stores/explore";
+import { useMapUi } from "@/stores/mapui";
 import { useWalk } from "@/stores/walk";
 import { useGuide, type ChatMessage } from "@/stores/guide";
 
@@ -79,9 +81,10 @@ export function ChatMessageView({ msg }: { msg: ChatMessage }) {
   const recs = r.recommendations;
   const loc = locationLine(r, t);
   const showOnMap = (id: number) => {
+    useMapUi.getState().setShowAiAnswer(true);
     explore.select(id);
     explore.focusAiPicks();
-    navigate("/map");
+    navigate("/");
   };
 
   return (
@@ -125,8 +128,9 @@ export function ChatMessageView({ msg }: { msg: ChatMessage }) {
               const start = used
                 ? { latitude: used.latitude, longitude: used.longitude, source: used.source === "request" ? ("manual" as const) : used.source === "anchor_poi" ? ("anchor_poi" as const) : ("default_city_center" as const), label: used.label }
                 : { latitude: 51.1282, longitude: 71.4304, source: "default_city_center" as const };
-              navigate("/walk");
-              await useWalk.getState().plan({ start, time_minutes: 90, poi_ids: recs.map((x) => x.poi_id).slice(0, 3) });
+              useMapUi.getState().open("route", "half");
+              navigate("/");
+              await useWalk.getState().plan({ start, time_minutes: useWalkContext.getState().timeMinutes ?? 90, poi_ids: recs.map((x) => x.poi_id).slice(0, 3) });
             }}
           >
             {t("guide.startWalk")}
@@ -138,7 +142,9 @@ export function ChatMessageView({ msg }: { msg: ChatMessage }) {
               onClick={() => {
                 explore.select(null);
                 explore.focusAiPicks();
-                navigate("/map");
+                useMapUi.getState().setShowAiAnswer(true);
+                useMapUi.getState().open("results", "collapsed");
+                navigate("/");
               }}
             >
               {t("guide.openMap")}

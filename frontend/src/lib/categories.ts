@@ -1,3 +1,8 @@
+import {
+  Award, Binoculars, Blocks, Building2, Coffee, Drama, Dumbbell, FerrisWheel, Footprints, Landmark, Library, Palette,
+  ShoppingBag, Trees, Users, Utensils, type LucideIcon,
+} from "lucide-react";
+
 // Marker / chip colours per category. Colours are distinct on both light and dark maps.
 export const CATEGORY_COLORS: Record<string, string> = {
   attraction: "#e11d48",
@@ -19,3 +24,10 @@ export const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export const categoryColor = (c: string) => CATEGORY_COLORS[c] ?? "#64748b";
+
+// Map marker / list icon per category (a generic pictogram of the category, not of the place).
+export const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  attraction: FerrisWheel, museum: Landmark, park: Trees, monument: Award, theatre: Drama, library: Library,
+  gallery: Palette, architecture: Building2, viewpoint: Binoculars, cafe: Coffee, restaurant: Utensils, mall: ShoppingBag,
+  playground: Blocks, public_space: Users, sports: Dumbbell, promenade: Footprints,
+};

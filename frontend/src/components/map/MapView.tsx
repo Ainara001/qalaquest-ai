@@ -1,7 +1,8 @@
 import maplibregl, { type GeoJSONSource, type Map as MlMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useEffect, useRef } from "react";
-import { CATEGORY_COLORS } from "@/lib/categories";
+import { createElement, useEffect, useRef } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/categories";
 import type { PoiFeatureCollection } from "@/services/pois";
 import type { AiPick } from "@/stores/explore";
 
@@ -9,6 +10,14 @@ import type { AiPick } from "@/stores/explore";
 const STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
 const ASTANA: [number, number] = [71.4304, 51.1282];
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+const BRAND = "#0f766e";
+const BASE_LAYERS = ["poi-clusters", "poi-cluster-count", "poi-points", "poi-icons"];
+
+export interface Highlight {
+  id: number;
+  lat: number;
+  lon: number;
+}
 
 interface Props {
   points: PoiFeatureCollection | null;
@@ -17,6 +26,10 @@ interface Props {
   radiusKm: number;
   aiPicks: AiPick[];
   aiFocus: number;
+  // recommendation layer beyond the numbered pins (separate source, can be switched off)
+  highlights?: Highlight[];
+  // the regular POI layer is drawn faded while recommendations are shown (never removed: search still finds everything)
+  dimBase?: boolean;
   // real walking route (Valhalla legs); empty when routing is unavailable — nothing is drawn then
   route?: number[][][];
   routeFocus?: number;
@@ -24,6 +37,8 @@ interface Props {
   picking: boolean;
   lang: string;
   theme: "light" | "dark";
+  // part of the map hidden by the bottom sheet (px), so fly-to keeps the place in the visible area
+  bottomInset?: number;
   onSelect: (id: number) => void;
   onPick: (lat: number, lon: number) => void;
   onError: () => void;
@@ -38,6 +53,24 @@ function circlePolygon(lat: number, lon: number, km: number): GeoJSON.Feature<Ge
     pts.push([lon + dLon, lat + dLat]);
   }
   return { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [pts] } };
+}
+
+// White category pictograms drawn on top of the coloured marker circles (generated once per page load).
+let iconCache: Promise<Record<string, HTMLImageElement>> | null = null;
+function categoryIcons(): Promise<Record<string, HTMLImageElement>> {
+  iconCache ??= Promise.all(
+    Object.entries(CATEGORY_ICONS).map(
+      ([cat, Icon]) =>
+        new Promise<[string, HTMLImageElement | null]>((resolve) => {
+          const svg = renderToStaticMarkup(createElement(Icon, { color: "#ffffff", size: 28, strokeWidth: 2.4 }));
+          const img = new Image(28, 28);
+          img.onload = () => resolve([cat, img]);
+          img.onerror = () => resolve([cat, null]);
+          img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+        }),
+    ),
+  ).then((list) => Object.fromEntries(list.filter((x): x is [string, HTMLImageElement] => x[1] !== null)));
+  return iconCache;
 }
 
 export function MapView(props: Props) {
@@ -59,6 +92,11 @@ export function MapView(props: Props) {
       type: "FeatureCollection",
       features: p.aiPicks.map((a) => ({ type: "Feature", properties: { id: a.id, n: String(a.n) }, geometry: { type: "Point", coordinates: [a.lon, a.lat] } })),
     });
+    const pinned = new Set(p.aiPicks.map((a) => a.id));
+    (map.getSource("rec") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: (p.highlights ?? []).filter((h) => !pinned.has(h.id)).map((h) => ({ type: "Feature", properties: { id: h.id }, geometry: { type: "Point", coordinates: [h.lon, h.lat] } })),
+    });
     const o = p.origin;
     (map.getSource("origin") as GeoJSONSource | undefined)?.setData(
       o ? { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [o.lon, o.lat] } }] } : EMPTY,
@@ -70,6 +108,17 @@ export function MapView(props: Props) {
       type: "FeatureCollection",
       features: (p.route ?? []).filter((g) => g.length > 1).map((g) => ({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: g } })),
     });
+    const fade = p.dimBase ? 0.35 : 1;
+    for (const id of BASE_LAYERS) {
+      if (!map.getLayer(id)) continue;
+      const type = map.getLayer(id)!.type;
+      if (type === "circle") {
+        map.setPaintProperty(id, "circle-opacity", fade);
+        map.setPaintProperty(id, "circle-stroke-opacity", fade);
+      } else if (type === "symbol") {
+        map.setPaintProperty(id, id === "poi-icons" ? "icon-opacity" : "text-opacity", fade);
+      }
+    }
     // Local labels: name:kk / name:ru when the tiles carry them, otherwise the original name.
     for (const layer of map.getStyle().layers) {
       if (layer.type !== "symbol" || layer.id.startsWith("poi-")) continue;
@@ -82,44 +131,57 @@ export function MapView(props: Props) {
 
   const addLayers = (map: MlMap) => {
     map.addSource("radius", { type: "geojson", data: EMPTY });
-    map.addLayer({ id: "radius-fill", type: "fill", source: "radius", paint: { "fill-color": "#0891b2", "fill-opacity": 0.08 } });
-    map.addLayer({ id: "radius-line", type: "line", source: "radius", paint: { "line-color": "#0891b2", "line-width": 2, "line-dasharray": [2, 2] } });
+    map.addLayer({ id: "radius-fill", type: "fill", source: "radius", paint: { "fill-color": "#0891b2", "fill-opacity": 0.06 } });
+    map.addLayer({ id: "radius-line", type: "line", source: "radius", paint: { "line-color": "#0891b2", "line-width": 1.5, "line-dasharray": [2, 2] } });
 
     map.addSource("route", { type: "geojson", data: EMPTY });
     map.addLayer({ id: "route-casing", type: "line", source: "route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#ffffff", "line-width": 9 } });
-    map.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#0f766e", "line-width": 5 } });
+    map.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": BRAND, "line-width": 5 } });
 
-    map.addSource("pois", { type: "geojson", data: EMPTY, cluster: true, clusterRadius: 48, clusterMaxZoom: 15 });
+    // clusterMaxZoom 14: from street level on, every place is its own marker (no hundreds of identical dots at city zoom)
+    map.addSource("pois", { type: "geojson", data: EMPTY, cluster: true, clusterRadius: 50, clusterMaxZoom: 14 });
     map.addLayer({
       id: "poi-clusters", type: "circle", source: "pois", filter: ["has", "point_count"],
       paint: {
-        "circle-color": ["step", ["get", "point_count"], "#0891b2", 25, "#4f46e5", 100, "#7c3aed"],
-        "circle-radius": ["step", ["get", "point_count"], 16, 25, 21, 100, 27],
+        "circle-color": ["step", ["get", "point_count"], "#64748b", 25, "#475569", 100, "#334155"],
+        "circle-radius": ["step", ["get", "point_count"], 15, 25, 19, 100, 24],
         "circle-stroke-width": 3, "circle-stroke-color": "#ffffff",
       },
     });
     map.addLayer({
       id: "poi-cluster-count", type: "symbol", source: "pois", filter: ["has", "point_count"],
-      layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 13 },
+      layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 12 },
       paint: { "text-color": "#ffffff" },
     });
     map.addLayer({
       id: "poi-points", type: "circle", source: "pois", filter: ["!", ["has", "point_count"]],
       paint: {
         "circle-color": ["match", ["get", "category"], ...Object.entries(CATEGORY_COLORS).flat(), "#64748b"] as unknown as string,
-        "circle-radius": 7, "circle-stroke-width": 2, "circle-stroke-color": "#ffffff",
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 11, 6, 15, 11],
+        "circle-stroke-width": 2, "circle-stroke-color": "#ffffff",
       },
     });
     map.addLayer({
+      id: "poi-icons", type: "symbol", source: "pois", filter: ["!", ["has", "point_count"]], minzoom: 13.5,
+      layout: { "icon-image": ["concat", "cat-", ["get", "category"]], "icon-size": 0.5, "icon-allow-overlap": true, "icon-ignore-placement": true },
+    });
+    map.addLayer({
       id: "poi-selected", type: "circle", source: "pois", filter: ["==", ["get", "id"], -1],
-      paint: { "circle-radius": 12, "circle-color": "rgba(0,0,0,0)", "circle-stroke-width": 3, "circle-stroke-color": "#f59e0b" },
+      paint: { "circle-radius": 15, "circle-color": "rgba(0,0,0,0)", "circle-stroke-width": 3, "circle-stroke-color": "#f59e0b" },
     });
 
-    // AI recommendations: numbered pins, never clustered, drawn above regular POIs
+    // Recommendation layer ("places for you" beyond the numbered top picks): ring markers, never clustered
+    map.addSource("rec", { type: "geojson", data: EMPTY });
+    map.addLayer({
+      id: "poi-rec", type: "circle", source: "rec",
+      paint: { "circle-radius": 10, "circle-color": "#ffffff", "circle-stroke-width": 4, "circle-stroke-color": BRAND },
+    });
+
+    // Top recommendations / route stops: numbered pins drawn above everything else
     map.addSource("ai", { type: "geojson", data: EMPTY });
     map.addLayer({
       id: "poi-ai", type: "circle", source: "ai",
-      paint: { "circle-radius": 14, "circle-color": "#0f766e", "circle-stroke-width": 3, "circle-stroke-color": "#ffffff" },
+      paint: { "circle-radius": 15, "circle-color": BRAND, "circle-stroke-width": 3, "circle-stroke-color": "#ffffff" },
     });
     map.addLayer({
       id: "poi-ai-n", type: "symbol", source: "ai",
@@ -132,14 +194,20 @@ export function MapView(props: Props) {
       id: "origin-dot", type: "circle", source: "origin",
       paint: { "circle-radius": 8, "circle-color": "#2563eb", "circle-stroke-width": 3, "circle-stroke-color": "#ffffff" },
     });
+
+    void categoryIcons().then((icons) => {
+      if (mapRef.current !== map) return;
+      for (const [cat, img] of Object.entries(icons)) if (!map.hasImage(`cat-${cat}`)) map.addImage(`cat-${cat}`, img, { pixelRatio: 2 });
+    });
   };
 
   // Create the map once; it survives language and theme changes.
   useEffect(() => {
     const map = new maplibregl.Map({
       container: box.current!, style: STYLES[live.current.theme], center: ASTANA, zoom: 11,
-      minZoom: 8, attributionControl: { compact: true },
+      minZoom: 8, attributionControl: { compact: true }, dragRotate: false, pitchWithRotate: false,
     });
+    map.touchZoomRotate.disableRotation();
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
@@ -158,20 +226,18 @@ export function MapView(props: Props) {
       const zoom = await src.getClusterExpansionZoom(f.properties.cluster_id);
       map.easeTo({ center: (f.geometry as GeoJSON.Point).coordinates as [number, number], zoom: zoom + 0.5 });
     });
-    map.on("click", "poi-ai", (e) => {
-      const id = e.features?.[0]?.properties?.id;
-      if (id !== undefined) live.current.onSelect(Number(id));
-    });
-    map.on("click", "poi-points", (e) => {
-      const id = e.features?.[0]?.properties?.id;
-      if (id !== undefined) live.current.onSelect(Number(id));
-    });
+    // one click selects one place: the topmost layer wins (numbered pin > recommendation ring > regular marker)
     map.on("click", (e) => {
-      if (!live.current.picking) return;
-      if (map.queryRenderedFeatures(e.point, { layers: ["poi-points", "poi-clusters", "poi-ai"] }).length) return;
-      live.current.onPick(e.lngLat.lat, e.lngLat.lng);
+      if (live.current.picking) {
+        if (map.queryRenderedFeatures(e.point, { layers: ["poi-points", "poi-clusters", "poi-ai", "poi-rec"] }).length) return;
+        live.current.onPick(e.lngLat.lat, e.lngLat.lng);
+        return;
+      }
+      const hit = map.queryRenderedFeatures(e.point, { layers: ["poi-ai", "poi-rec", "poi-points"] })[0];
+      const id = hit?.properties?.id;
+      if (id !== undefined) live.current.onSelect(Number(id));
     });
-    for (const layer of ["poi-clusters", "poi-points", "poi-ai"]) {
+    for (const layer of ["poi-clusters", "poi-points", "poi-ai", "poi-rec"]) {
       map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
       map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = live.current.picking ? "crosshair" : ""));
     }
@@ -186,7 +252,7 @@ export function MapView(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(sync, [points, selected?.id, origin?.lat, origin?.lon, radiusKm, lang, aiPicks, props.route, props.showRadius]);
+  useEffect(sync, [points, selected?.id, origin?.lat, origin?.lon, radiusKm, lang, aiPicks, props.highlights, props.dimBase, props.route, props.showRadius]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -204,13 +270,13 @@ export function MapView(props: Props) {
     mapRef.current?.setStyle(STYLES[theme], { diff: false });
   }, [theme]);
 
-  // Fly to the selected place.
+  // Fly to the selected place, keeping it in the part of the map that the sheet does not cover.
   useEffect(() => {
     const map = mapRef.current;
     if (!selected || !map) return;
-    // on phones the bottom sheet covers the lower ~half: keep the place in the visible upper part
-    const bottom = window.innerWidth < 768 ? Math.round((box.current?.clientHeight ?? 0) * 0.5) : 0;
-    map.easeTo({ center: [selected.lon, selected.lat], zoom: Math.max(map.getZoom(), 16), duration: 600, padding: { top: 70, bottom, left: 0, right: 0 } });
+    const phone = window.innerWidth < 768;
+    const bottom = phone ? (live.current.bottomInset ?? Math.round((box.current?.clientHeight ?? 0) * 0.5)) : 0;
+    map.easeTo({ center: [selected.lon, selected.lat], zoom: Math.max(map.getZoom(), 15.5), duration: 600, padding: { top: phone ? 130 : 40, bottom, left: 0, right: 0 } });
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Frame the whole walking route when it changes
@@ -222,23 +288,28 @@ export function MapView(props: Props) {
     const b = new maplibregl.LngLatBounds();
     pts.forEach((c) => b.extend(c as [number, number]));
     const phone = window.innerWidth < 768;
-    map.fitBounds(b, { padding: { top: 60, bottom: phone ? Math.round((box.current?.clientHeight ?? 600) * 0.45) : 60, left: 40, right: 40 }, maxZoom: 16, duration: 600 });
+    map.fitBounds(b, { padding: { top: phone ? 140 : 60, bottom: phone ? (live.current.bottomInset ?? Math.round((box.current?.clientHeight ?? 600) * 0.45)) + 20 : 60, left: 40, right: 40 }, maxZoom: 16, duration: 600 });
   }, [props.routeFocus]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Frame the AI picks when asked ("on the map" from the guide)
+  // Frame the numbered picks when asked (new recommendations, "on the map" from the guide)
   useEffect(() => {
     const map = mapRef.current;
     const picks = live.current.aiPicks;
     if (!map || !aiFocus || picks.length === 0) return;
-    if (picks.length === 1) return; // a single pick is framed by the selection fly-to
+    const phone = window.innerWidth < 768;
+    const bottom = phone ? (live.current.bottomInset ?? 220) + 20 : 60;
+    if (picks.length === 1) {
+      map.easeTo({ center: [picks[0].lon, picks[0].lat], zoom: Math.max(map.getZoom(), 14), duration: 600, padding: { top: phone ? 140 : 40, bottom, left: 0, right: 0 } });
+      return;
+    }
     const b = new maplibregl.LngLatBounds();
     picks.forEach((a) => b.extend([a.lon, a.lat]));
-    map.fitBounds(b, { padding: { top: 120, bottom: 220, left: 50, right: 50 }, maxZoom: 16, duration: 600 });
+    map.fitBounds(b, { padding: { top: phone ? 150 : 60, bottom, left: 50, right: 50 }, maxZoom: 15.5, duration: 600 });
   }, [aiFocus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Frame the search radius when an origin is chosen.
   useEffect(() => {
-    if (!origin) return;
+    if (!origin || props.showRadius === false) return;
     const k = radiusKm;
     const dLat = k / 111.32;
     const dLon = k / (111.32 * Math.cos((origin.lat * Math.PI) / 180));

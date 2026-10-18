@@ -35,3 +35,44 @@
 | edit | `docs/WEATHER_INTEGRATION.md` | Погода в рекомендациях карты и AI, `weather_fit` |
 
 Проверено: все модули бэкенда импортируются; SQL `suggest` компилируется под диалект PostgreSQL; реальный код ранжирования на синтетических строках (временный стенд вне репозитория): «фото» и «спокойный отдых» дают разные топ-5 (совпадение 2 из 5), «романтика + сильный мороз» поднимает кафе/ресторан с `weather_fit=indoor_in_adverse_weather`, при комфортной погоде — парк и набережную с `outdoor_in_good_weather`; `tsc` проходит. **Не проверено на реальной БД** (здесь нет PostgreSQL/PostGIS).
+
+## Фаза 3 — `stage6/03-map-first-ui`
+
+| Действие | Файл | Что сделано |
+|---|---|---|
+| create | `frontend/src/pages/MapHome.tsx` | Главный экран = карта: поиск, chips, слой рекомендаций, один лист снизу (места / карточка / маршрут / прогулка / планирование), активная прогулка (F1, F4, F5) |
+| create | `frontend/src/components/map/Search.tsx` | Строка «Найти место или спросить AI…» и панель поиска: название → `/api/pois/suggest` без LLM, просьба словами → AI-гид в той же сессии (F2) |
+| create | `frontend/src/components/map/FilterChips.tsx` | Chips «Настроение / Рядом / Время / Бюджет / Категории / Фильтры» с выбранными значениями + chip пожеланий из AI-гида |
+| create | `frontend/src/components/map/Pickers.tsx` | Листы выбора: настроение (9 вариантов, одно нажатие, сброс), время, бюджет, категории, «рядом», фильтры, погода (F3) |
+| create | `frontend/src/components/map/ResultsPanel.tsx` | «Места для вас»: 1–3 лучших с объяснением по источникам, список всех мест, ответ AI, «Построить прогулку» |
+| create | `frontend/src/components/map/PlacePanel.tsx` | Карточка места: «Маршрут», «Сохранить», «Подробнее», причина, подтверждённые в OSM факты |
+| create | `frontend/src/components/map/MapSheet.tsx` | Лист с тремя состояниями (свёрнут / половина / полностью), жест только за ручку |
+| create | `frontend/src/components/walk/WalkPanels.tsx` | Предпросмотр маршрута, активная прогулка, планирование — теперь на карте |
+| create | `frontend/src/stores/context.ts` | Общий контекст прогулки (настроение, время, бюджет, дети, погода, слой, пожелания AI), sessionStorage |
+| create | `frontend/src/stores/mapui.ts` | Какая панель открыта, состояние листа, единственный открытый picker |
+| create | `frontend/src/stores/recs.ts` | Слой рекомендаций: `/api/ai/search` по текущему контексту (без LLM) |
+| create | `frontend/src/lib/query.ts` | Эвристика «название или просьба к AI» |
+| create | `frontend/src/lib/reasons.ts` | Причины рекомендации раздельно: настроение / погода / запрос / профиль / отзывы |
+| create | `frontend/src/lib/start.ts` | Стартовая точка маршрута: выбранная точка → геолокация по нажатию → центр (с пометкой) |
+| delete | `frontend/src/pages/Home.tsx` | «Главная» дублировала карту; её функции перенесены на карту |
+| delete | `frontend/src/pages/MapPage.tsx` | Заменена `MapHome` |
+| delete | `frontend/src/pages/Walk.tsx` | Прогулка открывается на карте (`/walk` → `/?panel=walk`) |
+| delete | `frontend/src/components/explore/ExplorePanel.tsx`, `PoiDetailView.tsx` | Заменены `PlacePanel` и левой панелью карты |
+| delete | `frontend/src/components/walk/RouteSheet.tsx` | Заменён `MapSheet` |
+| edit | `frontend/src/components/map/MapView.tsx` | Отдельный отключаемый слой рекомендаций (кольца), номерные пины, приглушение обычных POI, иконки категорий, кластеры до zoom 14, без поворота карты, отступ под лист |
+| edit | `frontend/src/App.tsx`, `sections.ts`, `layouts/MainLayout.tsx` | 3 вкладки (Карта, AI-гид, Профиль); `/map`, `/explore`, `/walk` перенаправляются; на телефоне у карты нет шапки, учтены safe-area сверху и снизу |
+| edit | `frontend/src/styles/globals.css` | `--safe-t`, `--header-eff`, высота страницы без шапки на карте |
+| edit | `frontend/src/stores/profile.ts` | Настроение вынесено из профиля в контекст прогулки; `personalizationPayload` берёт сессию из общего контекста |
+| edit | `frontend/src/stores/guide.ts` | Пожелания из ответа AI (интересы, исключения, время) синхронизируются в контекст карты |
+| edit | `frontend/src/stores/explore.ts`, `hooks/useLocate.ts` | Общее состояние геолокации для всех кнопок |
+| edit | `frontend/src/pages/Guide.tsx` | Chip настроения открывает тот же выбор, что и на карте; chips времени и бюджета |
+| edit | `frontend/src/components/ChatMessages.tsx` | «На карте» и «Начать прогулку» открываются на карте без лишних экранов |
+| edit | `frontend/src/components/walk/WalkParts.tsx` | Убрано дублирование уведомления «маршрутизатор недоступен» (ошибка этапа 5) |
+| edit | `frontend/src/components/explore/parts.tsx` | Удалены неиспользуемые `SearchBox`, `OriginControls` |
+| edit | `frontend/src/components/icons.ts`, `lib/categories.ts` | Иконки новых настроений и категорий |
+| edit | `frontend/src/services/ai.ts`, `services/pois.ts` | `meta` в ответе AI, `tags` в карточке места |
+| edit | `frontend/src/pages/Profile.tsx` | Ссылки на карту → `/` |
+| edit | `frontend/src/i18n/locales/ru.json`, `kk.json` | ~120 новых строк RU/KK (обязательные переводы ТЗ §15), удалены ключи «Главной»; наборы ключей идентичны (669) |
+| edit | `backend/app/services/personalization.py` | Приоритет времени: параметр > текст запроса > контекст прогулки > профиль (раньше время сессии перекрывало сказанное в чате) |
+
+Проверено в браузере (375×812, 320×640, 1280×800) на временном тестовом API вне репозитория, который запускает **настоящий** код ранжирования, карточек и планировщика маршрутов на синтетических строках: старт сразу на карте, 3 вкладки, выбор настроения одним нажатием, «Фото» → архитектура/памятники, «Спокойный отдых» → парки/прогулочные зоны/кафе с раздельными причинами; поиск «Музеи 3» → карточка места; просьба словами → AI (без ключа — понятная ошибка 503 с повтором); «Маршрут» из карточки → предпросмотр с временем и расстоянием; RU→KK сохраняет настроение и карточку; нет горизонтального скролла на 320 px; `tsc` и `vite build` проходят. **Не проверено**: реальные POI, Valhalla и Gemini (их здесь нет), физические телефоны.

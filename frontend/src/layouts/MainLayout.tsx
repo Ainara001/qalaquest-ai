@@ -17,23 +17,30 @@ const desktopLink = ({ isActive }: { isActive: boolean }) =>
   );
 
 // Pages that fill the whole area between header and bottom bar (no page scroll).
-const FULL_BLEED = ["/map", "/guide", "/walk"];
+const FULL_BLEED = ["/", "/guide"];
 
 export function MainLayout() {
   const { t } = useTranslation();
   const { pathname } = useLocation();
   useViewportVars();
   const full = FULL_BLEED.includes(pathname);
+  const isMap = pathname === "/";
   const walk = useWalk((w) => w.session);
-  const showPill = !!walk && pathname !== "/walk";
+  // the map shows the active walk itself; other pages get a compact bar that leads back to it
+  const showPill = !!walk && !isMap;
   // the active-walk bar takes room from full-height pages instead of covering them
   useEffect(() => {
     document.documentElement.style.setProperty("--pill-h", showPill ? "2.75rem" : "0px");
   }, [showPill]);
+  // on phones the map screen has no header: the search field sits at the top of the map
+  useEffect(() => {
+    document.documentElement.classList.toggle("map-screen", isMap);
+    return () => document.documentElement.classList.remove("map-screen");
+  }, [isMap]);
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur" style={{ height: "var(--header-h)" }}>
+      <header className={cn("sticky top-0 z-30 border-b bg-background/90 backdrop-blur", isMap && "max-md:hidden")} style={{ height: "var(--header-h)", paddingTop: "var(--safe-t)", boxSizing: "content-box" }}>
         <div className="mx-auto flex h-full max-w-6xl items-center justify-between gap-3 px-4">
           <NavLink to="/" aria-label={t("common.homeAria")}>
             <Logo />
@@ -57,9 +64,9 @@ export function MainLayout() {
 
       {showPill && walk && (
         <Link
-          to="/walk"
+          to="/?panel=walk"
           className="sticky z-20 flex h-11 items-center justify-center gap-2 border-b bg-accent px-4 text-sm font-medium text-accent-foreground"
-          style={{ top: "var(--header-h)" }}
+          style={{ top: "var(--header-eff)" }}
         >
           <Footprints className="h-4 w-4" />
           {t("walk.statusPill", { count: walk.route.stops.length, min: remainingMinutes(walk) })}
@@ -70,7 +77,7 @@ export function MainLayout() {
       <main
         className={cn(
           "mx-auto w-full max-w-6xl flex-1",
-          full ? "md:px-4 md:py-4" : "px-4 py-4 md:py-8",
+          full ? (isMap ? "md:max-w-none" : "md:px-4 md:py-4") : "px-4 py-4 md:py-8",
           // reserve room for the fixed bottom bar (and the home indicator) on phones
           "pb-[var(--nav-eff)] md:pb-0",
           !full && "pb-nav md:pb-8",
@@ -79,7 +86,7 @@ export function MainLayout() {
         <Outlet />
       </main>
 
-      <footer className="hidden border-t py-6 text-center text-sm text-muted-foreground md:block">{t("footer.text")}</footer>
+      {!full && <footer className="hidden border-t py-6 text-center text-sm text-muted-foreground md:block">{t("footer.text")}</footer>}
 
       {/* Phone bottom navigation: the only navigation bar on small screens */}
       <nav
@@ -87,7 +94,7 @@ export function MainLayout() {
         className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 backdrop-blur md:hidden [.kb-open_&]:hidden"
         style={{ paddingBottom: "var(--safe-b)" }}
       >
-        <ul className="mx-auto grid max-w-lg grid-cols-4" style={{ height: "var(--nav-h)" }}>
+        <ul className="mx-auto grid max-w-lg grid-cols-3" style={{ height: "var(--nav-h)" }}>
           {navItems.map(({ key, path, icon: Icon }) => (
             <li key={path}>
               <NavLink
@@ -95,7 +102,7 @@ export function MainLayout() {
                 end={path === "/"}
                 className={({ isActive }) =>
                   cn(
-                    "relative flex h-full flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium leading-tight transition-colors",
+                    "relative flex h-full flex-col items-center justify-center gap-0.5 px-1 text-xs font-medium leading-tight transition-colors",
                     isActive ? "text-primary" : "text-muted-foreground active:text-foreground",
                   )
                 }

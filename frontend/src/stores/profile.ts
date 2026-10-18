@@ -1,4 +1,8 @@
 import { create } from "zustand";
+import { sessionPayload } from "@/stores/context";
+
+// The mood belongs to the current walk (stores/context.ts), not to the persistent profile.
+export { MOODS, type Mood } from "@/stores/context";
 
 /**
  * Guest profile. Lives on this device only: in memory, and in localStorage only after the user allows it.
@@ -11,8 +15,6 @@ export const PROFILE_INTERESTS: ProfileInterest[] = [
   "architecture", "history", "art", "nature", "parks", "photo", "coffee", "food",
   "museums", "unusual", "family", "sport", "quiet", "active", "culture_events", "free",
 ];
-export type Mood = "relax" | "adventure" | "inspiration" | "unusual" | "active" | "quiet" | "photo" | "family" | "just_walk";
-export const MOODS: Mood[] = ["relax", "adventure", "inspiration", "unusual", "active", "quiet", "photo", "family", "just_walk"];
 export type Budget = "free" | "2000" | "5000" | "10000" | "any";
 export type Pace = "slow" | "normal" | "active";
 export type Setting = "indoor" | "outdoor" | "any";
@@ -78,14 +80,11 @@ interface ProfileState {
   feedback: Feedback;
   places: Record<number, PlaceRef>; // names of rated places, for the saved/visited lists
   personalize: boolean | null; // null = default: on when the profile is configured
-  // session-only conditions (never written to storage)
-  mood: Mood | null;
   setStoreOnDevice: (on: boolean) => void;
   setPrefs: (patch: Partial<Preferences>) => void;
   toggleInterest: (i: ProfileInterest) => void;
   cycleCategory: (c: string) => void;
   setPersonalize: (on: boolean) => void;
-  setMood: (m: Mood | null) => void;
   toggleFeedback: (id: number, kind: FeedbackKind, place: PlaceRef) => void;
   clearFeedback: () => void;
   resetPrefs: () => void;
@@ -115,7 +114,6 @@ export const useProfile = create<ProfileState>((set, get) => {
     feedback: saved?.feedback ?? EMPTY_FEEDBACK,
     places: saved?.places ?? {},
     personalize: saved?.personalize ?? null,
-    mood: null,
 
     setStoreOnDevice: (on) => {
       set({ storeOnDevice: on });
@@ -147,7 +145,6 @@ export const useProfile = create<ProfileState>((set, get) => {
       });
     },
     setPersonalize: (on) => update({ personalize: on }),
-    setMood: (mood) => set({ mood }),
     toggleFeedback: (id, kind, place) => {
       const fb = { ...get().feedback };
       const on = fb[kind].includes(id);
@@ -163,7 +160,7 @@ export const useProfile = create<ProfileState>((set, get) => {
       } catch {
         /* ignore */
       }
-      set({ prefs: DEFAULT_PREFS, feedback: EMPTY_FEEDBACK, places: {}, personalize: null, mood: null, storeOnDevice: false });
+      set({ prefs: DEFAULT_PREFS, feedback: EMPTY_FEEDBACK, places: {}, personalize: null, storeOnDevice: false });
     },
   };
 });
@@ -178,12 +175,17 @@ export function personalizationOn(s: Pick<ProfileState, "personalize" | "prefs" 
   return s.personalize ?? (isConfigured(s.prefs) || hasFeedback);
 }
 
-/** Payload for the backend. Only validated, documented fields; no weights. */
-export function personalizationPayload(extra?: { company?: string; allow_unconfirmed_free?: boolean; time_minutes?: number }) {
+/**
+ * Payload for the backend. Only validated, documented fields; no weights.
+ * `session` = today's conditions from the shared walk context (mood, time, budget, company, AI wishes) + one-off extras,
+ * so the map, the AI guide and Living Route always send the same context.
+ */
+export function personalizationPayload(extra?: { company?: string; allow_unconfirmed_free?: boolean; time_minutes?: number; mood?: string | null }) {
   const s = useProfile.getState();
   const on = personalizationOn(s);
   const { wheelchair, ...profile } = s.prefs;
-  const session = { ...(s.mood ? { mood: s.mood } : {}), ...(extra ?? {}) };
+  const session: Record<string, unknown> = { ...sessionPayload(), ...(extra ?? {}) };
+  if (session.mood === null) delete session.mood;
   return {
     use_profile: on,
     ...(on ? { profile, feedback: s.feedback } : { feedback: { ...EMPTY_FEEDBACK, never: s.feedback.never } }),

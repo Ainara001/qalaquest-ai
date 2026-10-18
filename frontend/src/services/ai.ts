@@ -93,6 +93,7 @@ export interface AiResponse {
   explanation_unavailable: boolean;
   personalization: PersonalizationInfo | null;
   weather?: WeatherAssessment | null;
+  meta?: { time_minutes: number | null; radius_m: number; interests: string[]; exclude_categories: string[] } | null;
 }
 
 export interface SearchResult {

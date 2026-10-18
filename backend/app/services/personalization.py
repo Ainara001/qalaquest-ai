@@ -202,7 +202,8 @@ class PersonalizationService:
         ctx.speed_m_per_min = PACE_SPEED_M_PER_MIN[pace] if ctx.transport == "walk" else SPEED_M_PER_MIN[ctx.transport]
         if prof and pace != "normal":
             ctx.applied.append(Notice(code="pace", params={"pace": pace}))
-        ctx.time_minutes = req_time or (sess.time_minutes if sess else None) or intent.time_minutes or (prof.walk_duration_min if prof else None)
+        # explicit parameter > what the user writes now > today's walk context > usual duration from the profile
+        ctx.time_minutes = req_time or intent.time_minutes or (sess.time_minutes if sess else None) or (prof.walk_duration_min if prof else None)
         if ctx.time_minutes:
             ctx.applied.append(Notice(code="time_budget", params={"minutes": ctx.time_minutes}))
         radii = [r for r in (req_radius, intent.max_distance_m, radius_for_time(ctx.time_minutes, ctx.speed_m_per_min) if ctx.time_minutes else None) if r]

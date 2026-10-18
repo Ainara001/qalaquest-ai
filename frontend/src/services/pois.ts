@@ -36,6 +36,7 @@ export interface PoiDetail extends PoiItem {
   source_url: string | null;
   source_updated_at: string | null;
   attribution: string;
+  tags?: Record<string, string>; // raw OSM tags (confirmed facts are read from here, never inferred)
 }
 
 export interface CategoryCount {

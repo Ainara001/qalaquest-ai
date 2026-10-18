@@ -101,7 +101,7 @@ export function Profile() {
 
   const openOnMap = (id: number) => {
     useExplore.getState().select(id);
-    navigate("/map");
+    navigate("/");
   };
 
   const placeList = (kind: FeedbackKind, empty: string, action: "remove" | "restore") => {
