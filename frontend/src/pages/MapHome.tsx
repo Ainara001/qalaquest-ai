@@ -25,7 +25,7 @@ import { useMapUi, type SheetState } from "@/stores/mapui";
 import { useProfile } from "@/stores/profile";
 import { TOP_PINS, useRecs } from "@/stores/recs";
 import { useTheme } from "@/stores/theme";
-import { questDone, useQuest } from "@/stores/quest";
+import { questDone, questFinished, useQuest } from "@/stores/quest";
 import { useSurprise } from "@/stores/surprise";
 import { remainingMinutes, useWalk } from "@/stores/walk";
 
@@ -148,6 +148,13 @@ export function MapHome() {
     () => (routeMode || ui.showAiAnswer || ui.panel === "surprise" || !ctx.recLayer ? [] : recs.results.slice(TOP_PINS).map((r) => ({ id: r.poi_id, lat: r.latitude, lon: r.longitude }))),
     [routeMode, ui.showAiAnswer, ui.panel, ctx.recLayer, recs.results],
   );
+  // the active quest stays visible on the map (flags) while other panels are open; its own panel draws it in full
+  const questStops: Highlight[] = useMemo(
+    () => (quest.quest && quest.started && !questFinished(quest) && !questMode
+      ? quest.quest.route.stops.map((s) => ({ id: s.poi_id, lat: s.latitude, lon: s.longitude }))
+      : []),
+    [quest, questMode],
+  );
   const dimBase = routeMode || ui.showAiAnswer || ui.panel === "surprise" || (ctx.recLayer && (!!ctx.mood || ctx.aiWishes.interests.length > 0));
   const geometry = useMemo(() => (shownRoute?.legs ?? []).map((l) => l.geometry), [shownRoute]);
   const selected = useMemo(() => {
@@ -217,6 +224,7 @@ export function MapHome() {
           aiPicks={pins}
           aiFocus={ex.aiFocus}
           highlights={highlights}
+          questStops={questStops}
           dimBase={dimBase}
           route={walk.session || ui.panel === "route" || questMode || groupMode ? geometry : []}
           routeFocus={routeFocus}
@@ -317,7 +325,7 @@ export function MapHome() {
         </div>
 
         <MapSheet state={ui.sheet} onState={ui.setSheet} label={label} header={header}>
-          {body}
+          <div key={ui.panel} className="qq-fade-in">{body}</div>
         </MapSheet>
       </aside>
 

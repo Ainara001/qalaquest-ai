@@ -34,6 +34,7 @@ No path goes through Home → Explore → Planner → Route any more.
 - MapLibre GL with OpenFreeMap (light *positron* style by default, dark on request), labels in `name:kk` / `name:ru` where the tiles have them.
 - Regular POIs: clustered GeoJSON source (clusters up to zoom 14, so the city view never shows hundreds of identical dots), coloured markers with white category pictograms from zoom 13.5, the selected place has an amber ring.
 - **Recommendation layer** (separate source, switch on the map and in Filters): the top 1–3 places as numbered pins, the next ones as teal rings. While a mood or AI wishes are active the regular markers are drawn faded — never removed: search and the "All places" list still contain every POI.
+- **Active quest:** amber flag markers at the quest stops stay on the map while other panels are open (the quest panel itself draws numbered stops and the route); a compact bar "Quest «…» · 1/3" opens it.
 - Route line (Valhalla pedestrian geometry) for the route preview, the active walk, a re-plan proposal, a quest or a group walk. In straight-line mode nothing is drawn (only real routes are drawn).
 - Buttons over the map: weather (comfort level; opens the weather card), recommendation layer on/off, my location. Pinch zoom on phones; rotation is disabled.
 - Fly-to keeps the selected place above the bottom sheet (`bottomInset`).
@@ -74,7 +75,7 @@ A seventh chip appears when the AI guide understood wishes from the conversation
 ## Bottom sheets
 
 - One persistent sheet (`MapSheet`) holds exactly one panel: Places for you · Place card · Route preview · Walk · Plan · Surprise · Quest · Group. Three snap states: collapsed (title + key numbers), half, full (stops below the search and filters). Only the handle drags/toggles, so map gestures and list scrolling are never hijacked; buttons in the header stay buttons.
-- Pickers (mood, time, budget, categories, near, filters, weather) are short modal sheets; only one can be open.
+- Pickers (mood, time, budget, categories, near, filters, weather) are short modal sheets; only one can be open. Sheets slide in and panel content fades in (180 ms; disabled with `prefers-reduced-motion`).
 - Place card: Route · Save · More; why it is suggested (by source); address; hours or "unknown"; facts confirmed by OSM tags (free entry, wheelchair, cuisine, Wi-Fi, outdoor seating, historic object, artwork); "More" adds phone, website, description, names, coordinates, source and the note that photos are not shown (no licensed source).
 
 ## Context synchronisation

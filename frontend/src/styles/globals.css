@@ -70,3 +70,12 @@
   .maplibregl-ctrl-top-right { display: none; }
   .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { margin-bottom: 0.25rem; }
 }
+
+/* stage 6: gentle motion for sheets (disabled for users who prefer reduced motion) */
+@keyframes qq-sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes qq-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.qq-sheet-in { animation: qq-sheet-up 180ms ease-out; }
+.qq-fade-in { animation: qq-fade-in 160ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .qq-sheet-in, .qq-fade-in { animation: none; }
+}

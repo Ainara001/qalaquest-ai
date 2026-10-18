@@ -120,7 +120,7 @@ export function SearchPanel() {
       role="dialog"
       aria-modal="true"
       aria-label={t("search.title")}
-      className="fixed inset-0 z-50 flex flex-col bg-background md:inset-auto md:left-4 md:top-[calc(var(--header-h)+1rem)] md:max-h-[75dvh] md:w-[400px] md:rounded-2xl md:border md:shadow-xl"
+      className="qq-fade-in fixed inset-0 z-50 flex flex-col bg-background md:inset-auto md:left-4 md:top-[calc(var(--header-h)+1rem)] md:max-h-[75dvh] md:w-[400px] md:rounded-2xl md:border md:shadow-xl"
       style={{ paddingTop: "var(--safe-t)" }}
     >
       <form

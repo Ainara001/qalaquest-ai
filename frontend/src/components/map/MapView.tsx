@@ -2,6 +2,7 @@ import maplibregl, { type GeoJSONSource, type Map as MlMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { createElement, useEffect, useRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { Flag } from "lucide-react";
 import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/categories";
 import type { PoiFeatureCollection } from "@/services/pois";
 import type { AiPick } from "@/stores/explore";
@@ -30,6 +31,8 @@ interface Props {
   highlights?: Highlight[];
   // the regular POI layer is drawn faded while recommendations are shown (never removed: search still finds everything)
   dimBase?: boolean;
+  // stops of the active quest (flag markers), shown while other panels are open
+  questStops?: Highlight[];
   // real walking route (Valhalla legs); empty when routing is unavailable — nothing is drawn then
   route?: number[][][];
   routeFocus?: number;
@@ -73,6 +76,20 @@ function categoryIcons(): Promise<Record<string, HTMLImageElement>> {
   return iconCache;
 }
 
+// Amber round flag marker for the stops of an active quest.
+let flagCache: Promise<HTMLImageElement | null> | null = null;
+function questFlag(): Promise<HTMLImageElement | null> {
+  flagCache ??= new Promise((resolve) => {
+    const glyph = renderToStaticMarkup(createElement(Flag, { color: "#ffffff", size: 14, strokeWidth: 2.6 })).replace("<svg ", '<svg x="7" y="7" ');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="#d97706" stroke="#ffffff" stroke-width="2.5"/>${glyph}</svg>`;
+    const img = new Image(56, 56);
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  });
+  return flagCache;
+}
+
 export function MapView(props: Props) {
   const { points, selected, origin, radiusKm, picking, lang, theme, aiPicks, aiFocus } = props;
   const box = useRef<HTMLDivElement>(null);
@@ -94,9 +111,15 @@ export function MapView(props: Props) {
       features: p.aiPicks.map((a) => ({ type: "Feature", properties: { id: a.id, n: String(a.n) }, geometry: { type: "Point", coordinates: [a.lon, a.lat] } })),
     });
     const pinned = new Set(p.aiPicks.map((a) => a.id));
+    (map.getSource("quest") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: (p.questStops ?? []).filter((h) => !pinned.has(h.id)).map((h) => ({ type: "Feature", properties: { id: h.id }, geometry: { type: "Point", coordinates: [h.lon, h.lat] } })),
+    });
+    const questIds = new Set((p.questStops ?? []).map((h) => h.id));
     (map.getSource("rec") as GeoJSONSource | undefined)?.setData({
       type: "FeatureCollection",
-      features: (p.highlights ?? []).filter((h) => !pinned.has(h.id)).map((h) => ({ type: "Feature", properties: { id: h.id }, geometry: { type: "Point", coordinates: [h.lon, h.lat] } })),
+      // one marker per place: a quest flag or a numbered pin wins over the recommendation ring
+      features: (p.highlights ?? []).filter((h) => !pinned.has(h.id) && !questIds.has(h.id)).map((h) => ({ type: "Feature", properties: { id: h.id }, geometry: { type: "Point", coordinates: [h.lon, h.lat] } })),
     });
     const o = p.origin;
     (map.getSource("origin") as GeoJSONSource | undefined)?.setData(
@@ -179,6 +202,13 @@ export function MapView(props: Props) {
       paint: { "circle-radius": 10, "circle-color": "#ffffff", "circle-stroke-width": 4, "circle-stroke-color": BRAND },
     });
 
+    // Active quest stops: flag markers (symbol layer; the image is added once it is generated)
+    map.addSource("quest", { type: "geojson", data: EMPTY });
+    map.addLayer({
+      id: "quest-stops", type: "symbol", source: "quest",
+      layout: { "icon-image": "quest-flag", "icon-size": 0.75, "icon-allow-overlap": true, "icon-ignore-placement": true },
+    });
+
     // Top recommendations / route stops: numbered pins drawn above everything else
     map.addSource("ai", { type: "geojson", data: EMPTY });
     map.addLayer({
@@ -200,6 +230,9 @@ export function MapView(props: Props) {
     void categoryIcons().then((icons) => {
       if (mapRef.current !== map) return;
       for (const [cat, img] of Object.entries(icons)) if (!map.hasImage(`cat-${cat}`)) map.addImage(`cat-${cat}`, img, { pixelRatio: 2 });
+    });
+    void questFlag().then((img) => {
+      if (img && mapRef.current === map && !map.hasImage("quest-flag")) map.addImage("quest-flag", img, { pixelRatio: 2 });
     });
   };
 
@@ -231,15 +264,15 @@ export function MapView(props: Props) {
     // one click selects one place: the topmost layer wins (numbered pin > recommendation ring > regular marker)
     map.on("click", (e) => {
       if (live.current.picking) {
-        if (map.queryRenderedFeatures(e.point, { layers: ["poi-points", "poi-clusters", "poi-ai", "poi-rec"] }).length) return;
+        if (map.queryRenderedFeatures(e.point, { layers: ["poi-points", "poi-clusters", "poi-ai", "poi-rec", "quest-stops"] }).length) return;
         live.current.onPick(e.lngLat.lat, e.lngLat.lng);
         return;
       }
-      const hit = map.queryRenderedFeatures(e.point, { layers: ["poi-ai", "poi-rec", "poi-points"] })[0];
+      const hit = map.queryRenderedFeatures(e.point, { layers: ["poi-ai", "quest-stops", "poi-rec", "poi-points"] })[0];
       const id = hit?.properties?.id;
       if (id !== undefined) live.current.onSelect(Number(id));
     });
-    for (const layer of ["poi-clusters", "poi-points", "poi-ai", "poi-rec"]) {
+    for (const layer of ["poi-clusters", "poi-points", "poi-ai", "poi-rec", "quest-stops"]) {
       map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
       map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = live.current.picking ? "crosshair" : ""));
     }
@@ -254,7 +287,7 @@ export function MapView(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(sync, [points, selected?.id, origin?.lat, origin?.lon, radiusKm, lang, aiPicks, props.highlights, props.dimBase, props.route, props.showRadius]);
+  useEffect(sync, [points, selected?.id, origin?.lat, origin?.lon, radiusKm, lang, aiPicks, props.highlights, props.questStops, props.dimBase, props.route, props.showRadius]);
 
   useEffect(() => {
     const map = mapRef.current;

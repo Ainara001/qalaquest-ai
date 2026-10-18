@@ -62,7 +62,7 @@ Example (real ranking code on test rows): mood *romantic* + "very cold" puts a c
 4. Tasks (2–5) from templates bound to POI ids: per stop (photo from an unusual angle, find a facade detail, *read the information on site if there is any*, choose one exhibit, rest stop, play with children, three unnoticed details) and across stops (two different public spaces, compare two places, photo series, favourite stop). A second, different task per stop is added when few stops fit; fewer tasks than requested is reported (`quest_fewer_tasks`). Facts are only OSM tags of that place (`historic=memorial`, `artwork_type`, `cuisine`…); unknown opening hours are flagged on the task.
 5. Templates never state facts, events or exhibits, and never ask to enter closed areas; the panel says to respect the rules of places.
 6. Optional Gemini wording of the title and tasks: same task ids, no numbers/times/prices/ratings/"open now" outside the facts (validator from the recommendation service); otherwise templates (`generated_by` tells which).
-7. Progress is client-held (sessionStorage), like the walk: `pending → active → completed / skipped`; the user confirms each task — there is **no** automatic completion detection, and the UI says so. The active quest is shown on the map (stops + route) and in a compact bar.
+7. Progress is client-held (sessionStorage), like the walk: `pending → active → completed / skipped`; the user confirms each task — there is **no** automatic completion detection, and the UI says so. The active quest is shown on the map — numbered stops and the route in the quest panel, amber flag markers while other panels are open — and in a compact bar.
 
 ## Group Harmony — `POST /api/ai/groups/recommend`
 
