@@ -328,16 +328,21 @@ class LivingRouteService:
             if pid in new_ids:
                 change.kept.append(ChangedStop(poi_id=pid, name=names.get(pid), reason="kept"))
                 continue
+            # a stop that still fitted every constraint but lost to better-matching places is "ranked_lower", not "time"
             reason = ("visited" if pid in visited else "skipped" if pid in skipped else "rejected" if pid in rejected
                       else "filtered" if pid not in cand_ids
+                      else "ranked_lower" if pid in outcome.feasible_ids
                       else "outdoor_limit" if capped and cat_of.get(pid) not in INDOOR_CATEGORIES else "time_or_distance")
             change.removed.append(ChangedStop(poi_id=pid, name=names.get(pid), reason=reason))
         sel = {r.poi_id: r.reasons for r in route.explanation.selection}
+        # interests that matched only through the walk's mood are reported as the mood, not as the user's interests
+        sources = {st.poi_id: {m.source for m in st.matched_interests} for st in route.stops}
         for pid in new_ids:
             if pid not in s.stops:
                 rs = sel.get(pid, [])
                 reason = ("requested" if "requested" in rs else ("indoor_request" if prefs.indoor else "indoor_weather") if "indoor_weather" in rs
-                          else "matched_interest" if "matched_interest" in rs else "close" if "close" in rs else "ranked")
+                          else ("matched_mood" if sources.get(pid) == {"mood"} else "matched_interest") if "matched_interest" in rs
+                          else "close" if "close" in rs else "ranked")
                 change.added.append(ChangedStop(poi_id=pid, name=names.get(pid), reason=reason))
         update.stops = new_ids
         route.message = await self._summary(req.lang, route, change)

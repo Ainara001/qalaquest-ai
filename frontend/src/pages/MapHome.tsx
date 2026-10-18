@@ -98,7 +98,7 @@ export function MapHome() {
   }, [recs.status, recs.results]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // frame a new route / walk change
-  const routeKey = (ui.panel === "route" ? walk.draft?.computed_at : walk.session?.route.computed_at) ?? null;
+  const routeKey = (ui.panel === "route" ? walk.draft?.computed_at : walk.proposal?.route.computed_at ?? walk.session?.route.computed_at) ?? null;
   useEffect(() => {
     if (routeKey && (ui.panel === "route" || ui.panel === "walk")) setRouteFocus((n) => n + 1);
   }, [routeKey, ui.panel]);
@@ -110,7 +110,8 @@ export function MapHome() {
   }, []);
 
   const routeMode = ui.panel === "route" || ui.panel === "walk";
-  const shownRoute = ui.panel === "route" ? walk.draft : walk.session?.route ?? null;
+  // a re-plan proposal is drawn instead of the current route until the user decides
+  const shownRoute = ui.panel === "route" ? walk.draft : walk.proposal && ui.panel === "walk" ? walk.proposal.route : walk.session?.route ?? null;
   const pins: AiPick[] = useMemo(() => {
     if (routeMode && shownRoute) return shownRoute.stops.map((s, i) => ({ id: s.poi_id, lat: s.latitude, lon: s.longitude, name: s.name, n: i + 1 }));
     if (ui.showAiAnswer) return aiPicksFromGuide;
@@ -239,7 +240,10 @@ export function MapHome() {
           {walk.session && ui.panel !== "walk" && !ex.picking && (
             <button type="button" onClick={() => ui.open("walk", "half")} className="flex w-full items-center gap-2 rounded-2xl bg-accent px-4 py-2.5 text-left text-sm font-medium text-accent-foreground shadow-md">
               <Footprints className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{t("walk.statusPill", { count: walk.session.route.stops.length, min: remainingMinutes(walk.session) })}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {t("walk.statusPill", { count: walk.session.route.stops.length, min: remainingMinutes(walk.session) })}
+                {walk.proposal ? ` · ${t("walk.proposal.pending")}` : (walk.session.prefs.mood ?? null) !== ctx.mood ? ` · ${t("walk.moodChangedShort")}` : ""}
+              </span>
               <span className="shrink-0 font-semibold underline underline-offset-2">{t("walk.open")}</span>
             </button>
           )}

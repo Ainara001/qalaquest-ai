@@ -68,6 +68,8 @@ class PlanOutcome:
     weather_effect: list[Notice] = field(default_factory=list)
     considered: int = 0
     min_needed_min: int | None = None
+    # candidates that appeared in at least one plan satisfying every hard constraint (used to explain removals honestly)
+    feasible_ids: set[int] = field(default_factory=set)
 
 
 class RoutePlanningService:
@@ -108,6 +110,7 @@ class RoutePlanningService:
         cap = weather.outdoor_cap_min if weather and weather.level != "comfortable" else None
         k = min(places_count, len(pool))
         best, considered = None, 0
+        feasible: set[int] = set()
         relaxed_cap = False
         for use_cap in ((True, False) if cap else (False,)):
             best = None
@@ -119,6 +122,8 @@ class RoutePlanningService:
                     for perm in itertools.permutations(subset):
                         considered += 1
                         p = self._evaluate(perm, pool, matrix, time_budget, max_walk_m, cap if use_cap else None, keep_ids)
+                        if p:
+                            feasible.update(c.poi.id for c in p.order)
                         if p and (best is None or p.score > best.score):
                             best = p
                 if best and best.order and len(best.order) == size:
@@ -127,7 +132,7 @@ class RoutePlanningService:
                 relaxed_cap = cap is not None and not use_cap
                 break
 
-        outcome = PlanOutcome(status="ok", considered=considered)
+        outcome = PlanOutcome(status="ok", considered=considered, feasible_ids=feasible)
         if best is None:
             # nothing fits: report how much time the cheapest single stop would need
             singles = [self._evaluate((i,), pool, matrix, None, None, None, keep_ids) for i in range(len(pool))]

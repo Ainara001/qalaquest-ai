@@ -52,6 +52,13 @@ Events: `time_left`, `less_walking`, `tired`, `go_indoor`, `visited`, `skip`, `r
 6. Plan as above, then **diff** with the previous route: `kept`, `removed` (reason: visited, skipped, rejected, filtered by the new conditions, outdoor limit, time/distance, finished), `added` (requested, indoor by request/weather, matched interest, close, ranked), before/after minutes and metres, and the condition changes that triggered it. Every reason is derived from what the algorithm actually did.
 7. Optional Gemini summary of the computed facts; the backend drops it if it contains any number that is not in the facts (verified: an invented "2500 тенге, 7 минут" summary was discarded).
 
+## Stage 6: shared context and confirmation
+
+- **Same context as the map and the AI guide.** Every `plan` / `replan` sends the current walk context from `stores/context.ts` (mood, budget, company, weather switch) in `personalization.session` and `use_weather`; `session.prefs.mood` is always today's mood, so an old mood stored with the walk can no longer override a newer one chosen on the map.
+- **Changes are proposals.** `time_left`, `less_walking`, `go_indoor`, `interests`, `reject`, `location`, `weather_refresh`, `mood` and free-text `message` return a proposal: the panel shows what changes and why (`ChangeSummary`), the new totals and stops, and the map draws the proposed route; the walk continues on the current route until the user taps **Apply** (or **Keep current**). Progress marks (`visited`, `skip`) apply at once. The server is unchanged (it was already stateless); the client simply does not store the result until it is confirmed.
+- **Mood changed during a walk.** If the mood on the map / in the AI guide differs from the walk's mood, the walk panel and the active-walk bar say so and offer "Suggest a route" (a `mood` event → proposal). Nothing is re-planned automatically.
+- **Honest diff reasons (fixed).** A stop that still satisfied every constraint but lost to better-matching places is now `ranked_lower` (it used to be reported as `time_or_distance`); the planner records `feasible_ids` (stops that appeared in at least one feasible plan). A stop added only because of the mood is `matched_mood`, not "your interests".
+
 ## Personal AI link
 
 The stage 4 `PersonalizationService` and ranking feed the candidate pool unchanged (interests, favourite/disliked categories, budget rules, accessibility as a hard filter and `wheelchair` routing, feedback incl. "never again", mood). Walk-time wishes (e.g. "no more photos, I want to sit") are session prefs and never modify the stored profile.

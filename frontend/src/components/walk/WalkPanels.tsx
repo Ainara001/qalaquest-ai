@@ -1,4 +1,4 @@
-import { Crosshair, Flag, Footprints, LocateFixed, Loader2, MapPin, RefreshCw, Send, Shuffle, Sparkles, Timer, Umbrella, X } from "lucide-react";
+import { Check, Crosshair, Flag, Footprints, LocateFixed, Loader2, MapPin, RefreshCw, Send, Shuffle, Smile, Sparkles, Timer, Umbrella, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BottomSheet } from "@/components/BottomSheet";
@@ -158,6 +158,65 @@ export function PlanWalkPanel() {
   );
 }
 
+/** A re-planned route waiting for the user's decision; the map shows it while the current walk stays as it is. */
+function ProposalCard({ onFinished }: { onFinished: () => void }) {
+  const { t } = useTranslation();
+  const w = useWalk();
+  const p = w.proposal;
+  if (!p) return null;
+  const finishing = p.update.finished;
+  const empty = !finishing && p.route.stops.length === 0;
+  return (
+    <section aria-live="polite" className="space-y-3 rounded-2xl border-2 border-primary bg-card p-3 shadow-sm">
+      <p className="text-sm font-bold">{finishing ? t("walk.proposal.finishTitle") : t("walk.proposal.title")}</p>
+      <ChangeSummary change={p.change} />
+      {!finishing && <Totals route={p.route} />}
+      <Notices route={p.route} />
+      {!finishing && !empty && <StopList route={p.route} />}
+      {empty && <p className="text-sm text-muted-foreground">{t("walk.proposal.empty")}</p>}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          disabled={empty}
+          onClick={() => {
+            w.applyProposal();
+            if (finishing) onFinished();
+          }}
+          className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-40"
+        >
+          <Check className="h-4 w-4" /> {finishing ? t("walk.finish") : t("walk.proposal.apply")}
+        </button>
+        <button type="button" onClick={w.rejectProposal} className="h-12 rounded-2xl border text-sm font-semibold">{t("walk.proposal.keep")}</button>
+      </div>
+      <p className="text-[11px] text-muted-foreground">{t("walk.proposal.hint")}</p>
+    </section>
+  );
+}
+
+/** The mood on the map / in the AI guide changed during the walk: offer (never force) a re-plan. */
+function MoodChanged() {
+  const { t } = useTranslation();
+  const w = useWalk();
+  const mood = useWalkContext((c) => c.mood);
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const s = w.session;
+  if (!s || w.proposal || (s.prefs.mood ?? null) === mood || dismissed === String(mood)) return null;
+  return (
+    <div className="flex items-start gap-2 rounded-2xl bg-accent px-3 py-2.5 text-sm text-accent-foreground">
+      <Smile className="mt-0.5 h-4 w-4 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p>{mood ? t("walk.moodChanged", { mood: t(`mood.${mood}`) }) : t("walk.moodCleared")}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" disabled={w.pending} onClick={() => void w.replan({ type: "mood", ...(mood ? { mood } : {}) })} className="h-9 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-50">
+            {t("walk.moodSuggest")}
+          </button>
+          <button type="button" onClick={() => setDismissed(String(mood))} className="h-9 rounded-full border bg-card px-3 text-xs font-medium">{t("walk.notNow")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** The active walk: stops, "I visited", "change route", finish. */
 export function ActiveWalkPanel({ onFinished }: { onFinished: () => void }) {
   const { t } = useTranslation();
@@ -190,23 +249,25 @@ export function ActiveWalkPanel({ onFinished }: { onFinished: () => void }) {
     const ok = await w.replan(ev);
     if (ok) {
       setChangeOpen(false);
-      ui.setSheet("half");
-      if (useWalk.getState().session?.finished) onFinished();
+      ui.setSheet(useWalk.getState().proposal ? "full" : "half");
     }
   };
 
   return (
     <div className="space-y-3">
       <ErrorBox />
-      {s.change && <ChangeSummary change={s.change} />}
+      <ProposalCard onFinished={onFinished} />
+      <MoodChanged />
+      {s.change && !w.proposal && <ChangeSummary change={s.change} />}
       <Notices route={route} />
       {route.status === "no_feasible" ? (
         <p className="text-sm text-muted-foreground">{t("walk.noFeasible")}</p>
       ) : (
         <StopList route={route} busy={w.pending} onVisited={(id) => doReplan({ type: "visited", poi_id: id })} onSkip={(id) => doReplan({ type: "skip", poi_id: id })} />
       )}
+      {w.proposal && <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("walk.proposal.current")}</p>}
       <div className="grid grid-cols-2 gap-2">
-        <button type="button" disabled={w.pending} onClick={() => setChangeOpen(true)} className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50">
+        <button type="button" disabled={w.pending || !!w.proposal} onClick={() => setChangeOpen(true)} className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50">
           <Shuffle className="h-4 w-4" /> {t("walk.changeRoute")}
         </button>
         <button type="button" onClick={() => { w.finish(); onFinished(); }} className="flex h-12 items-center justify-center gap-2 rounded-2xl border text-sm font-semibold">
