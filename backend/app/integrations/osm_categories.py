@@ -43,7 +43,7 @@ RULES: list[Rule] = [
     Rule("promenade", {"man_made": ("pier",)}),
     Rule("promenade", {"natural": ("beach",)}),
     Rule("cafe", {"amenity": ("cafe", "ice_cream", "fast_food")}),
-    Rule("restaurant", {"amenity": ("restaurant", "food_court")}),
+    Rule("restaurant", {"amenity": ("restaurant",)}),
 ]
 
 CATEGORIES: list[str] = list(dict.fromkeys(r.category for r in RULES))

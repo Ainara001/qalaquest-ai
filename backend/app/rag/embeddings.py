@@ -73,11 +73,11 @@ class EmbeddingService:
                     )
                     out.extend(list(e.values) for e in r.embeddings)
                     break
-                except Exception as exc:  # free tier: per-minute quota → wait and retry
+                except Exception as exc:  # free tier: 100 texts per minute → wait for the next minute and retry
                     if attempt == 5 or "429" not in str(exc) and "RESOURCE_EXHAUSTED" not in str(exc):
                         raise
-                    log.warning("embedding quota hit, retrying in 20s")
-                    time.sleep(20)
+                    log.warning("embedding quota hit, retrying in 60s")
+                    time.sleep(60)
         return out
 
     def _embed(self, texts: list[str], task: str = "RETRIEVAL_DOCUMENT") -> list[list[float]]:
@@ -117,9 +117,14 @@ class EmbeddingService:
                 else:
                     todo.append((p.id, doc, h))
 
-        batch = 100 if self.remote else BATCH
+        # remote free tier counts every text: 90 per batch, one batch a minute, leaving room for user queries
+        batch = 90 if self.remote else BATCH
         for i in range(0, len(todo), batch):
             chunk = todo[i : i + batch]
+            if self.remote and i:
+                import time
+
+                time.sleep(61)
             try:
                 vectors = self.embed_passages([d for _, d, _ in chunk])
                 rows = [
@@ -138,7 +143,7 @@ class EmbeddingService:
                 stats["embedded"] += len(chunk)
                 log.info("indexed %d/%d", min(i + batch, len(todo)), len(todo))
             except Exception:  # one bad batch must not stop the rest
-                log.exception("batch %d failed", i // BATCH)
+                log.exception("batch %d failed", i // batch)
                 stats["failed"] += len(chunk)
         return stats
 

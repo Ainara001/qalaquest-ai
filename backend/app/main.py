@@ -68,8 +68,11 @@ def _bootstrap_data() -> None:
                 blog.info("import: %s %s", result["status"], result["totals"])
         finally:
             client.close()
-        stats = get_embedding_service().index_all(SessionLocal)  # only new or changed POIs
-        blog.info("index: %s", stats)
+        for _ in range(3):  # only new or changed POIs; another pass picks up batches that failed (quota)
+            stats = get_embedding_service().index_all(SessionLocal)
+            blog.info("index: %s", stats)
+            if not stats["failed"]:
+                break
     except Exception:
         blog.exception("bootstrap failed")
 
