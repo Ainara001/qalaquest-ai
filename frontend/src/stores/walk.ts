@@ -85,6 +85,7 @@ interface WalkState {
   rejectProposal: () => void;
   finish: () => void;
   discardDraft: () => void;
+  setDraft: (route: Route, start: StartPoint, budget: number) => void;
   clearError: () => void;
 }
 
@@ -203,5 +204,7 @@ export const useWalk = create<WalkState>((set, get) => ({
     set({ session: null, draft: null, proposal: null, pending: false, error: null });
   },
   discardDraft: () => set({ draft: null }),
+  // a route computed elsewhere (group walk) becomes the draft the user can start
+  setDraft: (route, start, budget) => set({ draft: route, draftStart: start, draftBudget: budget, error: null }),
   clearError: () => set({ error: null }),
 }));

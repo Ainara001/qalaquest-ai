@@ -270,3 +270,22 @@ class RoutePlanningService:
         score -= 0.15 * (total / budget if budget else walk_min / 90)
         score -= 0.10 * (walk_m / (max_walk_m or 3000))
         return Plan(order, walk_s, walk_m, visit, total, math.ceil(outdoor), score)
+
+
+def route_from_outcome(outcome: PlanOutcome, start: StartPoint, pace: str, preferences: list[InterestMatch], constraints: list[Notice],
+                       weather: WeatherAssessment | None) -> "Route":
+    """Route response for a planner outcome (shared by AI Quest and Group Harmony)."""
+    from datetime import datetime, timezone
+
+    from app.schemas.routes import Route, RouteExplanation
+
+    return Route(
+        status=outcome.status, routing_engine="valhalla-pedestrian" if outcome.status == "ok" else None, pace=pace,
+        walking_speed_kmh=PACE_KMH[pace], start=start, stops=outcome.stops, legs=outcome.legs, totals=outcome.totals,
+        explanation=RouteExplanation(
+            order=outcome.order_reason, preferences=preferences, constraints=constraints, weather=weather,
+            weather_effect=outcome.weather_effect, selection=outcome.selection,
+            missing_data=[n for n in outcome.notices if n.code == "hours_unknown"], alternatives_considered=outcome.considered,
+        ),
+        notices=[n for n in outcome.notices if n.code != "hours_unknown"], computed_at=datetime.now(timezone.utc),
+    )

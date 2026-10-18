@@ -50,3 +50,29 @@ export interface Quest {
 }
 
 export const generateQuest = (body: Record<string, unknown>, signal?: AbortSignal) => post<Quest>("/api/ai/quests/generate", body, signal);
+
+export interface GroupMemberInput {
+  name: string;
+  interests: string[];
+  mood: string | null;
+  budget: "free" | "2000" | "5000" | "10000" | "any" | null;
+  time_minutes: number | null;
+  pace: "slow" | "normal" | "active" | null;
+  wheelchair: boolean;
+  with_children: boolean;
+}
+
+export interface GroupResponse {
+  status: "ok" | "no_results";
+  places: { place: Recommendation; members: number[]; fit: number[] }[];
+  route: import("./routes").Route | null;
+  members: { index: number; name: string | null; satisfaction: number; level: "high" | "medium" | "low"; fits: number[] }[];
+  group_score: number | null;
+  common: { time_minutes: number | null; budget: string | null; pace: string; wheelchair: boolean; with_children: boolean };
+  compromise: Notice[];
+  sets_checked: number;
+  used_location: NonNullable<AiResponse["used_location"]>;
+  notices: Notice[];
+}
+
+export const recommendGroup = (body: Record<string, unknown>, signal?: AbortSignal) => post<GroupResponse>("/api/ai/groups/recommend", body, signal);

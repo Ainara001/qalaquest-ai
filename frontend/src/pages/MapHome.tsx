@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { FilterChips } from "@/components/map/FilterChips";
+import { GroupHeader, GroupPanel } from "@/components/map/GroupPanel";
 import { MapSheet } from "@/components/map/MapSheet";
 import { MapView, type Highlight } from "@/components/map/MapView";
 import { MapPickers } from "@/components/map/Pickers";
@@ -18,6 +19,7 @@ import { useMapPoints, usePoiQuery } from "@/hooks/usePois";
 import { cn } from "@/lib/utils";
 import { useWalkContext } from "@/stores/context";
 import { useExplore, type AiPick } from "@/stores/explore";
+import { useGroup } from "@/stores/group";
 import { useGuide } from "@/stores/guide";
 import { useMapUi, type SheetState } from "@/stores/mapui";
 import { useProfile } from "@/stores/profile";
@@ -60,6 +62,7 @@ export function MapHome() {
   const guidePending = useGuide((g) => g.pending);
   const surprisePlace = useSurprise((s) => s.result?.place ?? null);
   const quest = useQuest();
+  const groupResult = useGroup((g) => g.result);
   const query = usePoiQuery();
   const points = useMapPoints(query);
   const locate = useLocate();
@@ -105,10 +108,13 @@ export function MapHome() {
   }, [recs.status, recs.results]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const questMode = ui.panel === "quest" && !!quest.quest;
-  const routeMode = ui.panel === "route" || ui.panel === "walk" || questMode;
+  const groupMode = ui.panel === "group" && !!groupResult?.route;
+  const routeMode = ui.panel === "route" || ui.panel === "walk" || questMode || groupMode;
   // a re-plan proposal is drawn instead of the current route until the user decides; the quest has its own route
   const shownRoute = questMode
     ? quest.quest!.route
+    : groupMode
+    ? groupResult!.route
     : ui.panel === "route" ? walk.draft : walk.proposal && ui.panel === "walk" ? walk.proposal.route : walk.session?.route ?? null;
 
   // frame a new surprise
@@ -117,7 +123,7 @@ export function MapHome() {
   }, [surprisePlace?.poi_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // frame a new route / walk change
-  const routeKey = (questMode ? quest.quest!.id : ui.panel === "route" ? walk.draft?.computed_at : walk.proposal?.route.computed_at ?? walk.session?.route.computed_at) ?? null;
+  const routeKey = (questMode ? quest.quest!.id : groupMode ? groupResult!.route!.computed_at : ui.panel === "route" ? walk.draft?.computed_at : walk.proposal?.route.computed_at ?? walk.session?.route.computed_at) ?? null;
   useEffect(() => {
     if (routeKey && routeMode) setRouteFocus((n) => n + 1);
   }, [routeKey, ui.panel]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -182,6 +188,10 @@ export function MapHome() {
       header = <QuestHeader />;
       body = <QuestPanel />;
       break;
+    case "group":
+      header = <GroupHeader />;
+      body = <GroupPanel />;
+      break;
     default:
       header = <ResultsHeader />;
       body = <ResultsPanel query={query} />;
@@ -203,7 +213,7 @@ export function MapHome() {
           aiFocus={ex.aiFocus}
           highlights={highlights}
           dimBase={dimBase}
-          route={walk.session || ui.panel === "route" || questMode ? geometry : []}
+          route={walk.session || ui.panel === "route" || questMode || groupMode ? geometry : []}
           routeFocus={routeFocus}
           picking={ex.picking}
           lang={i18n.language}

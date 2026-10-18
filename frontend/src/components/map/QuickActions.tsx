@@ -1,4 +1,4 @@
-import { Gift, Swords } from "lucide-react";
+import { Gift, Swords, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { useMapUi } from "@/stores/mapui";
@@ -26,6 +26,9 @@ export function QuickActions({ className }: { className?: string }) {
       <button type="button" onClick={() => ui.open("quest", "half")} className={cn(btn, ui.panel === "quest" && "border-primary bg-primary text-primary-foreground")}>
         <Swords className="h-4 w-4" /> {t("quest.button")}
         {hasQuest && ui.panel !== "quest" && <span className="h-2 w-2 rounded-full bg-[hsl(var(--brand))]" aria-hidden />}
+      </button>
+      <button type="button" onClick={() => ui.open("group", "half")} className={cn(btn, ui.panel === "group" && "border-primary bg-primary text-primary-foreground")}>
+        <Users className="h-4 w-4" /> {t("group.button")}
       </button>
     </div>
   );

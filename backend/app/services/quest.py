@@ -17,21 +17,20 @@ import asyncio
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
 from app.rag.retrieval import Candidate, retrieve
 from app.schemas.ai import Notice
 from app.schemas.context import Quest, QuestRequest, QuestTask
-from app.schemas.routes import Route, RouteExplanation, StartPoint
+from app.schemas.routes import StartPoint
 from app.schemas.weather import WeatherAssessment
 from app.services.context import assess_weather, build_context, resolve_start
 from app.services.llm import LLMInvalidOutput, LLMService, LLMUnavailable
 from app.services.personalization import PersonalizationService
 from app.services.query_understanding import LANG_NAME
 from app.services.recommendation import _violations
-from app.services.route_planning import PACE_KMH, RoutePlanningService
+from app.services.route_planning import RoutePlanningService, route_from_outcome
 
 log = logging.getLogger("quest")
 POOL = 9
@@ -195,14 +194,7 @@ class QuestGenerationService:
         places = min(3, max(2, req.tasks_count - 1)) if req.tasks_count >= 3 else 2
         outcome = await self.planner.plan(start=start, candidates=cands, lang=req.lang, places_count=places, pace=pace, time_budget=time_min,
                                           max_walk_m=None, weather=weather, wheelchair=ctx.wheelchair)
-        route = Route(
-            status=outcome.status, routing_engine="valhalla-pedestrian" if outcome.status == "ok" else None, pace=pace,
-            walking_speed_kmh=PACE_KMH[pace], start=start, stops=outcome.stops, legs=outcome.legs, totals=outcome.totals,
-            explanation=RouteExplanation(order=outcome.order_reason, preferences=ctx.info().interests, constraints=ctx.applied, weather=weather,
-                                         weather_effect=outcome.weather_effect, selection=outcome.selection, missing_data=[],
-                                         alternatives_considered=outcome.considered),
-            notices=outcome.notices, computed_at=datetime.now(timezone.utc),
-        )
+        route = route_from_outcome(outcome, start, pace, ctx.info().interests, ctx.applied, weather)
         by_id = {c.poi.id: c for c in cands}
         stops = [by_id[s.poi_id] for s in outcome.stops if s.poi_id in by_id]
         tasks = build_tasks(req.quest_type, stops, req.tasks_count, req.lang) if stops else []

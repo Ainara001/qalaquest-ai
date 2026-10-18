@@ -24,7 +24,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.rag.taxonomy import CategoryKey
+from app.rag.taxonomy import CategoryKey, Mood, ProfileInterest
 from app.schemas.ai import AiLang, GeoPoint, Notice, Recommendation, UsedLocation
 from app.schemas.personalization import PersonalizationInput
 from app.schemas.routes import Route
@@ -103,3 +103,53 @@ class Quest(BaseModel):
     generated_by: Literal["template", "ai"]
     notices: list[Notice] = Field(default_factory=list)
     used_location: UsedLocation
+
+
+# ------------------------------------------------------------------ Group Harmony (stage 6)
+
+class GroupMember(BaseModel):
+    """One participant, entered on this device (no accounts, nothing stored on the server)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, max_length=30)
+    interests: list[ProfileInterest] = Field(default_factory=list, max_length=8)
+    mood: Mood | None = None
+    budget: Literal["free", "2000", "5000", "10000", "any"] | None = None
+    time_minutes: int | None = Field(default=None, ge=15, le=480)
+    pace: Literal["slow", "normal", "active"] | None = None
+    wheelchair: bool = False
+    with_children: bool = False
+
+
+class GroupRequest(RecommendationContext):
+    members: list[GroupMember] = Field(min_length=2, max_length=5)
+    places_count: int = Field(default=3, ge=1, le=3)
+
+
+class MemberFit(BaseModel):
+    index: int
+    name: str | None
+    satisfaction: float  # best normalised fit among the chosen places (0..1), computed from categories and OSM tags
+    level: Literal["high", "medium", "low"]
+    fits: list[int]  # chosen places that fit this member (normalised fit >= 0.5)
+
+
+class GroupPlace(BaseModel):
+    place: Recommendation
+    members: list[int]  # indexes of members this place fits (normalised fit >= 0.5)
+    fit: list[float]  # normalised fit per member
+
+
+class GroupResponse(BaseModel):
+    status: Literal["ok", "no_results"]
+    places: list[GroupPlace]
+    route: Route | None
+    members: list[MemberFit]
+    group_score: float | None  # 0.6 × least satisfied + 0.4 × average satisfaction + 0.1 × ranking
+    common: dict[str, int | str | bool | None]  # strictest time / budget / pace / accessibility applied to everyone
+    compromise: list[Notice]  # codes rendered by the UI
+    sets_checked: int
+    used_location: UsedLocation
+    notices: list[Notice]
+    weather: WeatherAssessment | None = None
