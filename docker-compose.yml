@@ -29,6 +29,7 @@ services:
       VALHALLA_URL: http://valhalla:8002
       WEATHER_RULES: ${WEATHER_RULES:-}
       RANKING_WEIGHTS: ${RANKING_WEIGHTS:-}
+      EVENT_SOURCES: ${EVENT_SOURCES:-}
     volumes:
       - modelcache:/models
     ports:

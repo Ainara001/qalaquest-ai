@@ -5,7 +5,7 @@ import { useExplore } from "@/stores/explore";
  * What the map screen shows. Exactly one panel lives in the bottom sheet (phones) / side panel (desktop) at a time,
  * and at most one picker sheet is open above it, so sheets never stack on top of each other.
  */
-export type Panel = "results" | "place" | "route" | "walk" | "plan" | "surprise" | "quest" | "group";
+export type Panel = "results" | "place" | "route" | "walk" | "plan" | "surprise" | "quest" | "group" | "events";
 export type SheetState = "collapsed" | "half" | "full";
 export type Picker = "mood" | "time" | "budget" | "categories" | "filters" | "near" | "weather" | null;
 

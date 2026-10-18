@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     weather_timeout_s: float = 8.0
     weather_cache_s: int = 600
     weather_rules: str | None = None  # JSON override of app.core.weather_rules.DEFAULT_RULES
+    # --- events (stage 7): JSON list of verified iCal sources; empty = no sources connected (nothing is shown)
+    event_sources: str | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -1,5 +1,6 @@
+from app.models.event import Event
 from app.models.import_run import ImportRun
 from app.models.poi import Poi
 from app.models.poi_index import PoiIndex
 
-__all__ = ["ImportRun", "Poi", "PoiIndex"]
+__all__ = ["Event", "ImportRun", "Poi", "PoiIndex"]

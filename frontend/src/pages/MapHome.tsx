@@ -2,6 +2,7 @@ import { CloudSun, Footprints, Layers, LocateFixed, Loader2, X } from "lucide-re
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
+import { EventsHeader, EventsPanel } from "@/components/map/EventsPanel";
 import { FilterChips } from "@/components/map/FilterChips";
 import { GroupHeader, GroupPanel } from "@/components/map/GroupPanel";
 import { MapSheet } from "@/components/map/MapSheet";
@@ -19,6 +20,7 @@ import { useMapPoints, usePoiDetail, usePoiQuery } from "@/hooks/usePois";
 import { cn } from "@/lib/utils";
 import { useWalkContext } from "@/stores/context";
 import { useExplore, type AiPick } from "@/stores/explore";
+import { useEvents } from "@/stores/events";
 import { useGroup } from "@/stores/group";
 import { useGuide } from "@/stores/guide";
 import { useMapUi, type SheetState } from "@/stores/mapui";
@@ -63,6 +65,13 @@ export function MapHome() {
   const surprisePlace = useSurprise((s) => s.result?.place ?? null);
   const quest = useQuest();
   const groupResult = useGroup((g) => g.result);
+  const eventsData = useEvents((e) => e.data);
+  // events are drawn while their panel is open, only those whose venue is a real POI (no guessed positions)
+  const eventMarkers = useMemo(
+    () => (ui.panel === "events" ? (eventsData?.items ?? []).filter((e) => e.latitude !== null && e.longitude !== null)
+      .map((e) => ({ id: e.id, lat: e.latitude!, lon: e.longitude!, category: e.category, poiId: e.poi_id })) : []),
+    [ui.panel, eventsData],
+  );
   const query = usePoiQuery();
   const points = useMapPoints(query);
   // coordinates of the selected place when it is not among the drawn points (shared, cached request)
@@ -204,6 +213,10 @@ export function MapHome() {
       header = <GroupHeader />;
       body = <GroupPanel />;
       break;
+    case "events":
+      header = <EventsHeader />;
+      body = <EventsPanel />;
+      break;
     default:
       header = <ResultsHeader />;
       body = <ResultsPanel query={query} />;
@@ -225,6 +238,8 @@ export function MapHome() {
           aiFocus={ex.aiFocus}
           highlights={highlights}
           questStops={questStops}
+          events={eventMarkers}
+          onEventSelect={ex.select}
           dimBase={dimBase}
           route={walk.session || ui.panel === "route" || questMode || groupMode ? geometry : []}
           routeFocus={routeFocus}

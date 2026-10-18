@@ -1,4 +1,4 @@
-import { Accessibility, Baby, Clock, Coffee, Footprints, LayoutGrid, LocateFixed, Loader2, SlidersHorizontal, Smile, Utensils, Wallet, X } from "lucide-react";
+import { Accessibility, Baby, CalendarDays, Clock, Coffee, Footprints, LayoutGrid, LocateFixed, Loader2, SlidersHorizontal, Smile, Utensils, Wallet, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MOOD_ICONS } from "@/components/icons";
 import { useLocate } from "@/hooks/useLocate";
@@ -70,6 +70,9 @@ export function FilterChips() {
           </Chip>
         );
       })}
+      <Chip on={ui.panel === "events"} onClick={() => ui.open(ui.panel === "events" ? "results" : "events", "half")}>
+        <CalendarDays className="h-4 w-4" /> {t("events.title")}
+      </Chip>
       <Chip on={prof.prefs.wheelchair} onClick={() => prof.setPrefs({ wheelchair: !prof.prefs.wheelchair })} label={t("filters.wheelchair")}>
         <Accessibility className="h-4 w-4" /> {t("filters.intent.accessible")}
       </Chip>

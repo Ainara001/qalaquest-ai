@@ -125,6 +125,7 @@ Re-run it after every POI import (or import with `--index`); unchanged places ar
 | `POST /api/ai/surprise` | Surprise me: one relevant real place that is new for this user (stage 6) |
 | `POST /api/ai/quests/generate` | AI Quest: 2–5 tasks around real POIs on a real walking route (stage 6) |
 | `POST /api/ai/groups/recommend` | Group Harmony: one walk for 2–5 people with an explained compromise (stage 6) |
+| `GET /api/events` | Real dated events from verified sources (`when`, `category`, location); `sources_connected = 0` → none shown (stage 7). Import: `python -m app.scripts.import_events`, sources in `EVENT_SOURCES` |
 
 `/api/ai/search`, `/recommend` and `/chat` accept `use_weather=true` (stage 6): the Open-Meteo assessment of the start point is added to the ranking and every card says whether the mood, the weather or the user's interests put it there (`explanation.mood`, `explanation.weather_fit`, `matched_interests[].source`).
 | `GET /api/ai/status` | LLM configured? model, embedding readiness, indexed POI count |
