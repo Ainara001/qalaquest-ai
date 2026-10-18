@@ -38,6 +38,7 @@ class PoiDetail(PoiItem):
     description_lang: str | None  # language of `description`, None = unspecified by OSM
     opening_hours: str | None
     open_status: str = "unknown"  # open | closed | unknown — computed now from OSM opening_hours (Astana time)
+    accessibility: dict | None = None  # entrance status from OSM tags; the path is never claimed barrier-free
     website: str | None
     phone: str | None
     wheelchair: str | None

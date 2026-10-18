@@ -155,6 +155,22 @@ export function PlacePanel({ id }: { id: number }) {
             <ul className="flex flex-wrap gap-1.5">{facts.map((f) => <li key={f} className="rounded-full bg-muted px-2.5 py-1 text-xs">{f}</li>)}</ul>
           </Row>
         )}
+        {poi.accessibility && (
+          <Row label={t("a11y.title")}>
+            <ul className="space-y-1 text-[13px]">
+              <li><span className="font-medium">{t("a11y.entrance")}:</span> {t(`a11y.entranceStatus.${poi.accessibility.entrance}`)}</li>
+              <li><span className="font-medium">{t("a11y.path")}:</span> {t("a11y.pathNotVerified")}</li>
+              {poi.accessibility.facts.length > 0 && <li className="font-mono text-[11px] text-muted-foreground">OSM: {poi.accessibility.facts.join(" · ")}</li>}
+            </ul>
+          </Row>
+        )}
+        <Row label={t("place.sourceTitle")}>
+          <span className="text-[13px] text-muted-foreground">
+            {poi.source_url ? <a className="text-primary hover:underline" href={poi.source_url} target="_blank" rel="noopener noreferrer">OpenStreetMap · {poi.osm_type}/{poi.osm_id}</a> : "OpenStreetMap"}
+            {poi.source_updated_at && <> · {t("poi.dataFrom", { date: formatDate(poi.source_updated_at, i18n.language) })}</>}
+            <span className="block">{t("place.ratingUnknown")}</span>
+          </span>
+        </Row>
       </dl>
 
       {full && (

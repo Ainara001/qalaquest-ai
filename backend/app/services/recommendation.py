@@ -12,13 +12,14 @@ import time
 
 from sqlalchemy import func, select
 
+from app.core.accessibility import accessibility
 from app.integrations.osm_categories import CATEGORY_LABELS
 from app.models import Poi
 from app.rag.embeddings import EmbeddingService
 from app.rag.retrieval import CITY_CENTER, Candidate, retrieve, travel_minutes
 from app.rag.taxonomy import VISIT_MINUTES
 from app.schemas.ai import (
-    AiRequest, AiResponse, Confidence, Estimate, Explanation, InterestMatch, LLMRecommendations, Notice, QueryIntent,
+    Accessibility, AiRequest, AiResponse, Confidence, Estimate, Explanation, InterestMatch, LLMRecommendations, Notice, QueryIntent,
     RankingScores, Recommendation, SearchMeta, SearchRequest, SearchResult, Source, UsedLocation,
 )
 from app.schemas.weather import WeatherAssessment
@@ -59,6 +60,19 @@ _MONEY = re.compile(r"\d[\d\s.,]*\s?(тенге|тг\b|₸|kzt|usd|\$|руб|eur
 _CLOCK = re.compile(r"\b\d{1,2}[:.]\d{2}\b")
 _RATING = re.compile(r"(\d(?:[.,]\d)?\s?(?:/\s?5|★|звезд|жұлдыз|stars?))|★", re.I)
 _OPEN_NOW = re.compile(r"открыт[оа]?\s+сейчас|сейчас\s+открыт|work(s|ing)? now|open now|қазір\s+ашық|ашық\s+қазір", re.I)
+
+
+# Wishes the data cannot confirm for any place (no such OSM attribute is collected): say so instead of promising.
+UNVERIFIABLE = {
+    "sockets": re.compile(r"розетк|зарядк|socket|power outlet|розетка|қуат көз", re.I),
+    "quiet": re.compile(r"тих|спокойн|quiet|calm|тыныш", re.I),
+    "crowd": re.compile(r"малолюдн|без толп|не людн|uncrowded|адам аз", re.I),
+    "cozy": re.compile(r"уютн|cozy|жайлы", re.I),
+}
+
+
+def unverifiable_wishes(text: str) -> list[str]:
+    return [k for k, rx in UNVERIFIABLE.items() if rx.search(text or "")]
 
 
 def ctx_time(req: AiRequest, intent: QueryIntent) -> int:
@@ -135,6 +149,7 @@ def _card(c: Candidate, lang: str, ctx: PersonalContext, pick=None) -> Recommend
         travel_estimate=Estimate(minutes=travel_minutes(d, ctx.speed_m_per_min), basis=f"straight_line_x1.3_{ctx.transport}_{ctx.speed_m_per_min}m_per_min") if d else None,
         visit_estimate=Estimate(minutes=VISIT_MINUTES.get(p.category, 20), basis="typical_for_category"),
         opening_hours=p.opening_hours, hours_status="known" if p.opening_hours else "unknown", open_status=c.open_status,
+        accessibility=Accessibility(**accessibility(p.wheelchair, p.tags)),
         website=p.website, phone=p.phone, wheelchair=p.wheelchair, fee=_fee(p),
         source=Source(name=p.source, url=p.source_url, attribution=ATTRIBUTION),
         confidence=_confidence(p, lang),
@@ -339,6 +354,9 @@ class RecommendationService:
             )
         if ctx.strict_free and ctx.allow_unconfirmed_free:
             notices.append(Notice(code="free_unverified"))
+        wishes = unverifiable_wishes(req.message)
+        if wishes:  # e.g. "a quiet café with a socket": ranked by kind of place, the attribute itself is unknown
+            notices.append(Notice(code="attributes_unverified", params={"attrs": ",".join(wishes)}))
 
         # ---- generation + validation
         t = time.monotonic()

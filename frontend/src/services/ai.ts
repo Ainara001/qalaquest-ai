@@ -71,6 +71,7 @@ export interface Recommendation {
   opening_hours: string | null;
   hours_status: "known" | "unknown";
   open_status?: "open" | "closed" | "unknown";
+  accessibility?: { entrance: "confirmed" | "partial" | "no" | "unknown"; path: "not_verified"; facts: string[]; source: string } | null;
   website: string | null;
   phone: string | null;
   wheelchair: string | null;

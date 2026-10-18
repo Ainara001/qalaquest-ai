@@ -13,7 +13,7 @@ import type { RouteEvent, StartPoint } from "@/services/routes";
 import { useWalkContext } from "@/stores/context";
 import { useExplore } from "@/stores/explore";
 import { useMapUi } from "@/stores/mapui";
-import { PROFILE_INTERESTS, type ProfileInterest } from "@/stores/profile";
+import { PROFILE_INTERESTS, useProfile, type ProfileInterest } from "@/stores/profile";
 import { remainingMinutes, useWalk } from "@/stores/walk";
 
 const TIMES = [30, 60, 90, 120];
@@ -86,6 +86,7 @@ export function RoutePreviewPanel() {
       {d && (
         <>
           <StartLabel source={d.start.source} label={d.start.label} />
+          {useProfile.getState().prefs.wheelchair && <p role="note" className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] dark:border-amber-800 dark:bg-amber-950/40">{t("a11y.routeWarning")}</p>}
           <Notices route={d} />
           {d.stops.length > 0 ? <StopList route={d} /> : <p className="text-sm text-muted-foreground">{t("walk.noFeasible")}</p>}
           {d.stops.length > 0 && (

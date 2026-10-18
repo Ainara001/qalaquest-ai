@@ -19,6 +19,8 @@ function noticeText(n: Notice, t: (k: string, o?: Record<string, unknown>) => st
       return t("guide.notices.no_confirmed_free", { radius: p.radius_m, count: p.count });
     case "no_accessible":
       return t("guide.notices.no_accessible");
+    case "attributes_unverified":
+      return t("guide.notices.attributes_unverified", { list: String(p.attrs ?? "").split(",").filter(Boolean).map((a) => t(`a11y.attr.${a}`)).join(", ") });
     case "anchor_resolved":
     case "anchor_not_found":
     case "time_too_short":

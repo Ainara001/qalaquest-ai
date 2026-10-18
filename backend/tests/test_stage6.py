@@ -158,3 +158,22 @@ def test_weather_failure_is_not_retried_on_every_map_refresh():
     with pytest.raises(WeatherUnavailable):
         asyncio.run(w.report(51.1, 71.4))
     assert time.perf_counter() - t < 0.2  # answered from the failure memo, no second network wait
+
+
+# ----------------------------------------------------------------- stage 7: honesty about unknown attributes
+
+def test_unverifiable_wishes_are_detected():
+    from app.services.recommendation import unverifiable_wishes
+
+    assert set(unverifiable_wishes("Хочу тихое место с кофе и розеткой")) == {"quiet", "sockets"}
+    assert unverifiable_wishes("музей истории") == []
+
+
+def test_accessibility_entrance_vs_path():
+    from app.core.accessibility import accessibility
+
+    a = accessibility("yes", {"ramp:wheelchair": "yes"})
+    assert a["entrance"] == "confirmed" and a["path"] == "not_verified" and "ramp:wheelchair=yes" in a["facts"]
+    assert accessibility(None, {})["entrance"] == "unknown"  # no tag → not confirmed, nothing invented
+    assert accessibility("limited", {})["entrance"] == "partial"
+    assert accessibility("no", {})["entrance"] == "no"

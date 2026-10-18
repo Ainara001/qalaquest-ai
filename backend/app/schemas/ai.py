@@ -159,6 +159,15 @@ class Explanation(BaseModel):
     weather_fit: Literal["indoor_in_adverse_weather", "outdoor_in_good_weather"] | None = None
 
 
+class Accessibility(BaseModel):
+    """Entrance and path are separate; the path is never claimed barrier-free (OSM data on kerbs/steps is sparse)."""
+
+    entrance: Literal["confirmed", "partial", "no", "unknown"]
+    path: Literal["not_verified"] = "not_verified"
+    facts: list[str] = Field(default_factory=list)  # real OSM tags of this object, e.g. "ramp:wheelchair=yes"
+    source: str = "openstreetmap"
+
+
 class Recommendation(BaseModel):
     poi_id: int
     name: str | None
@@ -178,6 +187,7 @@ class Recommendation(BaseModel):
     hours_status: Literal["known", "unknown"]
     # stage 7: computed from OSM opening_hours for the estimated arrival (Astana time); "unknown" = not confirmed
     open_status: Literal["open", "closed", "unknown"] = "unknown"
+    accessibility: Accessibility | None = None
     website: str | None
     phone: str | None
     wheelchair: str | None
