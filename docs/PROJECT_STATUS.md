@@ -11,7 +11,7 @@ _Last updated: 2026-10-18 (stage 6)_
 | 3 | RAG + AI, mobile-first light UI | **Done except one item**: real Gemini calls were not verified (no API key available) |
 | 4 | Personal AI: profile, moods, feedback, personal ranking | **Done**; real Gemini still unverified (no key) |
 | 5 | Living Route (real pedestrian routing, re-planning) + Astana Weather Mode | **Done**; Gemini-dependent parts (free-text route changes, route summaries) unverified with the real API (no key) |
-| 6 | Map-first UX, Mood-Aware Map, AI Quest, Group Harmony, Surprise Me | **Implemented** in branches `stage6/01…08` (not merged into `main`); verified with unit tests and in the browser against a scratch API that runs the real services on synthetic rows — **not yet run against the real database, Valhalla or Gemini** (see "Stage 6") |
+| 6 | Map-first UX, Mood-Aware Map, AI Quest, Group Harmony, Surprise Me | **Implemented** in branches `stage6/01…12` (not merged into `main`; the last one contains everything); verified with unit tests and in the browser against a scratch API that runs the real services on synthetic rows — **not yet run against the real database, Valhalla or Gemini** (see "Stage 6") |
 | 7 | English UI, presentation | Not started |
 
 ## Stage 3 plan (written before implementation, 2026-10-18)
@@ -165,12 +165,12 @@ FastAPI skeleton (settings, CORS, JSON logs, unified error format, Swagger at `/
 - Physical phones, real GPS and on-screen keyboards not tested (emulation only). In the in-app browser the map canvas does not repaint while the pane is hidden (environment artefact; a forced redraw showed all layers).
 - The place-name / AI-request detection is a heuristic; the other option is always offered in the search panel.
 - Group fit and Surprise novelty are category- and tag-level calculations (documented), not judgements about specific places; OSM data stays sparse (prices, accessibility, hours).
-- Branches are not merged into `main`; `main` was not touched. Later branches: `stage6/09-polish` (P2: peek of the best place, mood hint, "plan a walk" entry) and `stage6/10-hardening` (review fixes, API validation tests). **The newest branch contains everything.**
+- Branches are not merged into `main`; `main` was not touched. Later branches: `stage6/09-polish` (P2: peek of the best place, mood hint, "plan a walk" entry), `stage6/10-hardening` (review fixes, API validation tests), `stage6/11-quest-on-map-motion` (active quest flags on the map, gentle motion) and `stage6/12-final-review` (data info in Profile, lint fixes, version 0.6.0). **The newest branch, `stage6/12-final-review`, contains everything.**
 - `ghcr.io/valhalla/valhalla-scripted:latest` is still unpinned (reproducibility; not changed because the matching tag could not be checked here).
 
 ## Next: stage 7
 
-Not started (by the stage 6 instructions). Before stage 7: merge `stage6/08-docs-verification` into `main` after a review and run the real-stack verification above.
+Not started (by the stage 6 instructions). Before stage 7: merge `stage6/12-final-review` into `main` after a review and run the real-stack verification above.
 
 ## Architecture decisions
 
