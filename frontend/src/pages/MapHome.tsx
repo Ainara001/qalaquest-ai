@@ -7,6 +7,7 @@ import { MapSheet } from "@/components/map/MapSheet";
 import { MapView, type Highlight } from "@/components/map/MapView";
 import { MapPickers } from "@/components/map/Pickers";
 import { PlaceHeader, PlacePanel } from "@/components/map/PlacePanel";
+import { QuestHeader, QuestPanel } from "@/components/map/QuestPanel";
 import { QuickActions } from "@/components/map/QuickActions";
 import { ResultsHeader, ResultsPanel } from "@/components/map/ResultsPanel";
 import { SearchBar, SearchPanel } from "@/components/map/Search";
@@ -22,6 +23,7 @@ import { useMapUi, type SheetState } from "@/stores/mapui";
 import { useProfile } from "@/stores/profile";
 import { TOP_PINS, useRecs } from "@/stores/recs";
 import { useTheme } from "@/stores/theme";
+import { questDone, useQuest } from "@/stores/quest";
 import { useSurprise } from "@/stores/surprise";
 import { remainingMinutes, useWalk } from "@/stores/walk";
 
@@ -57,6 +59,7 @@ export function MapHome() {
   const aiPicksFromGuide = useExplore((s) => s.aiPicks);
   const guidePending = useGuide((g) => g.pending);
   const surprisePlace = useSurprise((s) => s.result?.place ?? null);
+  const quest = useQuest();
   const query = usePoiQuery();
   const points = useMapPoints(query);
   const locate = useLocate();
@@ -101,16 +104,23 @@ export function MapHome() {
     }
   }, [recs.status, recs.results]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const questMode = ui.panel === "quest" && !!quest.quest;
+  const routeMode = ui.panel === "route" || ui.panel === "walk" || questMode;
+  // a re-plan proposal is drawn instead of the current route until the user decides; the quest has its own route
+  const shownRoute = questMode
+    ? quest.quest!.route
+    : ui.panel === "route" ? walk.draft : walk.proposal && ui.panel === "walk" ? walk.proposal.route : walk.session?.route ?? null;
+
   // frame a new surprise
   useEffect(() => {
     if (ui.panel === "surprise" && surprisePlace) ex.focusAiPicks();
   }, [surprisePlace?.poi_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // frame a new route / walk change
-  const routeKey = (ui.panel === "route" ? walk.draft?.computed_at : walk.proposal?.route.computed_at ?? walk.session?.route.computed_at) ?? null;
+  const routeKey = (questMode ? quest.quest!.id : ui.panel === "route" ? walk.draft?.computed_at : walk.proposal?.route.computed_at ?? walk.session?.route.computed_at) ?? null;
   useEffect(() => {
-    if (routeKey && (ui.panel === "route" || ui.panel === "walk")) setRouteFocus((n) => n + 1);
-  }, [routeKey, ui.panel]);
+    if (routeKey && routeMode) setRouteFocus((n) => n + 1);
+  }, [routeKey, ui.panel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // the active-walk bar shows the remaining time; refresh it once a minute
   useEffect(() => {
@@ -118,9 +128,6 @@ export function MapHome() {
     return () => clearInterval(id);
   }, []);
 
-  const routeMode = ui.panel === "route" || ui.panel === "walk";
-  // a re-plan proposal is drawn instead of the current route until the user decides
-  const shownRoute = ui.panel === "route" ? walk.draft : walk.proposal && ui.panel === "walk" ? walk.proposal.route : walk.session?.route ?? null;
   const pins: AiPick[] = useMemo(() => {
     if (routeMode && shownRoute) return shownRoute.stops.map((s, i) => ({ id: s.poi_id, lat: s.latitude, lon: s.longitude, name: s.name, n: i + 1 }));
     if (ui.panel === "surprise") return surprisePlace ? [{ id: surprisePlace.poi_id, lat: surprisePlace.latitude, lon: surprisePlace.longitude, name: surprisePlace.name, n: "?" }] : [];
@@ -171,6 +178,10 @@ export function MapHome() {
       header = <SurpriseHeader />;
       body = <SurprisePanel />;
       break;
+    case "quest":
+      header = <QuestHeader />;
+      body = <QuestPanel />;
+      break;
     default:
       header = <ResultsHeader />;
       body = <ResultsPanel query={query} />;
@@ -192,7 +203,7 @@ export function MapHome() {
           aiFocus={ex.aiFocus}
           highlights={highlights}
           dimBase={dimBase}
-          route={walk.session || ui.panel === "route" ? geometry : []}
+          route={walk.session || ui.panel === "route" || questMode ? geometry : []}
           routeFocus={routeFocus}
           picking={ex.picking}
           lang={i18n.language}
@@ -268,6 +279,12 @@ export function MapHome() {
                 {walk.proposal ? ` · ${t("walk.proposal.pending")}` : (walk.session.prefs.mood ?? null) !== ctx.mood ? ` · ${t("walk.moodChangedShort")}` : ""}
               </span>
               <span className="shrink-0 font-semibold underline underline-offset-2">{t("walk.open")}</span>
+            </button>
+          )}
+          {quest.quest && quest.started && ui.panel !== "quest" && !ex.picking && (
+            <button type="button" onClick={() => ui.open("quest", "half")} className="flex w-full items-center gap-2 rounded-2xl bg-card px-4 py-2.5 text-left text-sm font-medium shadow-md">
+              <span className="min-w-0 flex-1 truncate">{t("quest.bar", { title: quest.quest.title ?? t(`quest.types.${quest.quest.type}`), done: questDone(quest), total: quest.quest.tasks.length })}</span>
+              <span className="shrink-0 font-semibold text-primary underline underline-offset-2">{t("common.open")}</span>
             </button>
           )}
           {finishedNote && !walk.session && (

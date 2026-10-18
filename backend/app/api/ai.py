@@ -10,10 +10,13 @@ from app.db.session import SessionLocal, get_db
 from app.models import PoiIndex
 from app.rag.embeddings import get_embedding_service
 from app.schemas.ai import AiRequest, AiResponse, ChatRequest, SearchRequest, SearchResult
-from app.schemas.context import SurpriseRequest, SurpriseResponse
+from app.schemas.context import Quest, QuestRequest, SurpriseRequest, SurpriseResponse
 from app.services.ai_guard import RateLimiter, deduper, limiter, sessions
 from app.services.llm import LLMInvalidOutput, LLMUnavailable, get_llm
 from app.services.recommendation import RecommendationService
+from app.integrations.valhalla import get_valhalla
+from app.services.quest import QuestGenerationService
+from app.services.route_planning import RoutePlanningService
 from app.services.surprise import SurpriseRecommendationService
 from app.services.weather import get_weather
 
@@ -108,6 +111,14 @@ async def surprise(req: SurpriseRequest, request: Request, db: Annotated[Session
 
     # without Gemini this is retrieval only, so the looser limit applies; with it, the AI limit protects the quota
     return await _guarded(request, key, run, limiter if get_llm().configured else search_limiter)
+
+
+@router.post("/quests/generate", response_model=Quest, summary="AI Quest: 2–5 tasks around real POIs on a real walking route")
+async def generate_quest(req: QuestRequest, request: Request, db: Annotated[Session, Depends(get_db)]):
+    _ensure_index(db)
+    key = deduper.key("quest", _client(request), req.model_dump_json())
+    svc = QuestGenerationService(get_embedding_service(), get_llm(), get_weather(), RoutePlanningService(get_valhalla()), SessionLocal)
+    return await _guarded(request, key, lambda: svc.generate(req), limiter if get_llm().configured else search_limiter)
 
 
 @router.delete("/chat/{session_id}", status_code=204, summary="Forget the conversation context of a session")

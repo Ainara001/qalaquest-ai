@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.rag.taxonomy import CategoryKey
 from app.schemas.ai import AiLang, GeoPoint, Notice, Recommendation, UsedLocation
 from app.schemas.personalization import PersonalizationInput
+from app.schemas.routes import Route
 from app.schemas.weather import WeatherAssessment
 
 
@@ -68,3 +69,37 @@ class SurpriseResponse(BaseModel):
     used_location: UsedLocation
     notices: list[Notice]
     weather: WeatherAssessment | None = None
+
+
+# ------------------------------------------------------------------ AI Quest (stage 6)
+
+QuestType = Literal["explorer", "photo_hunt", "architecture", "history", "family", "city_secrets"]
+
+
+class QuestRequest(RecommendationContext):
+    quest_type: QuestType = "explorer"
+    tasks_count: int = Field(default=3, ge=2, le=5)
+
+
+class QuestTask(BaseModel):
+    id: str
+    poi_ids: list[int]  # the real places this task is about (1 for a stop, 2+ for a comparison)
+    kind: Literal["visit", "photo", "observe", "compare", "rest"]
+    template: str  # code rendered by the UI in RU/KK with `params`
+    params: dict[str, str | int] = Field(default_factory=dict)
+    facts: list[str] = Field(default_factory=list)  # confirmed OSM tags the task may refer to, e.g. "historic=memorial"
+    text: str | None = None  # AI wording (validated); when absent the UI renders the template
+    hours_unknown: bool = False
+
+
+class Quest(BaseModel):
+    id: str
+    type: QuestType
+    title: str | None  # AI title (validated) or None → the UI shows the localized quest type
+    stops: list[int]
+    tasks: list[QuestTask]
+    estimated_minutes: int | None
+    route: Route  # real pedestrian route (or labelled straight-line estimate) through the stops
+    generated_by: Literal["template", "ai"]
+    notices: list[Notice] = Field(default_factory=list)
+    used_location: UsedLocation
