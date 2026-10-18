@@ -50,11 +50,20 @@ def decode_polyline6(encoded: str) -> list[list[float]]:
     return coords
 
 
+PRIMARY_RETRY_S = 60  # after the primary engine fails, go straight to the fallback for this long
+USER_AGENT = "QalaQuestAI/0.6 (hackathon; github.com/Ainara001/qalaquest-ai)"
+
+
 class ValhallaClient:
     def __init__(self) -> None:
         s = get_settings()
-        self.base, self.timeout = s.valhalla_url.rstrip("/"), s.valhalla_timeout_s
+        primary = s.valhalla_url.rstrip("/")
+        fallbacks = [u.strip().rstrip("/") for u in s.valhalla_fallback_urls.split(",") if u.strip()]
+        self.bases = [primary, *[u for u in fallbacks if u != primary]]
+        self.base, self.timeout = primary, s.valhalla_timeout_s
         self._cache: dict[str, tuple[float, object]] = {}
+        self._down_until: dict[str, float] = {}
+        self.last_used: str | None = None
 
     def _costing(self, speed_kmh: float, wheelchair: bool) -> dict:
         opts: dict = {"walking_speed": round(speed_kmh, 2)}
@@ -67,12 +76,26 @@ class ValhallaClient:
         hit = self._cache.get(key)
         if hit and time.monotonic() - hit[0] < CACHE_TTL_S:
             return hit[1]  # type: ignore[return-value]
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.post(f"{self.base}{path}", json=body)
-        except httpx.HTTPError as exc:
-            log.warning("valhalla unreachable: %s", type(exc).__name__)
-            raise RoutingUnavailable() from None
+        resp = None
+        now = time.monotonic()
+        # engines in order; one that failed recently is skipped (unless it is the only one left)
+        order = [b for b in self.bases if self._down_until.get(b, 0) <= now] or self.bases
+        for base in order:
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout, headers={"User-Agent": USER_AGENT}) as client:
+                    resp = await client.post(f"{base}{path}", json=body)
+            except httpx.HTTPError as exc:
+                log.warning("valhalla %s unreachable: %s", self._label(base), type(exc).__name__)
+                self._down_until[base] = time.monotonic() + PRIMARY_RETRY_S
+                continue
+            if resp.status_code >= 500 or resp.status_code in (429, 403):
+                log.warning("valhalla %s HTTP %s", self._label(base), resp.status_code)
+                self._down_until[base] = time.monotonic() + PRIMARY_RETRY_S
+                continue
+            self.last_used = self._label(base)
+            break
+        else:
+            raise RoutingUnavailable()
         if resp.status_code == 400:
             try:
                 data = resp.json()
@@ -90,12 +113,24 @@ class ValhallaClient:
         self._cache[key] = (time.monotonic(), data)
         return data
 
+    def _label(self, base: str) -> str:
+        return "primary" if base == self.base else base.split("//")[-1]
+
     async def status(self) -> bool:
-        try:
-            async with httpx.AsyncClient(timeout=3) as client:
-                return (await client.get(f"{self.base}/status")).status_code == 200
-        except httpx.HTTPError:
-            return False
+        return (await self.engines())["available"]
+
+    async def engines(self) -> dict:
+        """Reachability of each configured engine (the first reachable one is used for routing)."""
+        out = []
+        for base in self.bases:
+            try:
+                async with httpx.AsyncClient(timeout=4, headers={"User-Agent": USER_AGENT}) as client:
+                    ok = (await client.get(f"{base}/status")).status_code == 200
+            except httpx.HTTPError:
+                ok = False
+            out.append({"engine": self._label(base), "reachable": ok})
+        active = next((e["engine"] for e in out if e["reachable"]), None)
+        return {"available": active is not None, "active": active, "engines": out}
 
     async def matrix(self, points: list[tuple[float, float]], speed_kmh: float, wheelchair: bool = False) -> list[list[tuple[float, float] | None]]:
         """All-to-all walking (distance_m, duration_s); None where no path exists."""

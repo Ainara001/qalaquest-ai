@@ -102,3 +102,31 @@ export const replanRoute = (body: Record<string, unknown>, signal?: AbortSignal)
   post<{ route: Route; change: RouteChange; session: SessionUpdate }>("/api/routes/replan", body, signal);
 export const getWeather = (lat?: number, lon?: number, minutes = 90) =>
   api<WeatherReport>(`/api/weather/forecast?minutes=${minutes}${lat !== undefined ? `&latitude=${lat}&longitude=${lon}` : ""}`);
+
+export interface TransitStop { stop_id: string; name: string | null; latitude: number; longitude: number; walk_m: number; walk_minutes: number; walk_method: "pedestrian_route" | "geodesic_straight_line" }
+export interface TransitOption {
+  mode: "bus" | "trolleybus" | "tram" | "share_taxi";
+  ref: string | null;
+  name: string | null;
+  direction_from: string | null;
+  direction_to: string | null;
+  operator: string | null;
+  board: TransitStop;
+  alight: TransitStop;
+  stops_count: number;
+  ride_distance_m: number;
+  ride_minutes: number;
+  total_minutes: number;
+  saves_minutes: number;
+  osm_url: string;
+}
+export interface TransitResponse {
+  options: TransitOption[];
+  walk_only_minutes: number;
+  walk_only_distance_m: number;
+  walk_method: "pedestrian_route" | "geodesic_straight_line";
+  routes_in_data: number;
+  data_generated_at: string | null;
+}
+export const getTransit = (from: { lat: number; lon: number }, to: { lat: number; lon: number }, signal?: AbortSignal) =>
+  post<TransitResponse>("/api/routes/transit", { start: { latitude: from.lat, longitude: from.lon }, destination: { latitude: to.lat, longitude: to.lon } }, signal);

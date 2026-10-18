@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { getWeather, type WeatherReport } from "@/services/routes";
 
-/** Compact real-weather block (Open-Meteo through the backend). Never shows invented values. */
+/** Compact real-weather block (Open-Meteo, or MET Norway when it is unavailable, through the backend). Never shows invented values. */
 export function WeatherCard({ lat, lon, minutes = 90, compact = false }: { lat?: number; lon?: number; minutes?: number; compact?: boolean }) {
   const { t } = useTranslation();
   const [w, setW] = useState<WeatherReport | null>(null);
@@ -51,7 +51,7 @@ export function WeatherCard({ lat, lon, minutes = 90, compact = false }: { lat?:
         <p className="mt-3 text-sm">{t(`weather.advice.${a.level}`, { conds })}</p>
       )}
       <p className="mt-2 text-[11px] text-muted-foreground">
-        {t("weather.updated", { time })} · Open-Meteo{w.stale && <> · {t("weather.stale")}</>}
+        {t("weather.updated", { time })} · {w.source === "met.no" ? "MET Norway" : "Open-Meteo"}{w.stale && <> · {t("weather.stale")}</>}
         {a.level !== "comfortable" && <> · {t("weather.disclaimer")}</>}
       </p>
     </div>

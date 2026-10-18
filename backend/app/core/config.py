@@ -32,6 +32,9 @@ class Settings(BaseSettings):
 
     # --- routing / weather (stage 5) ---
     valhalla_url: str = "http://localhost:8002"
+    # Comma-separated hosted Valhalla instances used when the primary one is unreachable (Render has no room for
+    # the Kazakhstan routing tiles). Same API, real pedestrian routing on OSM data; FOSSGIS asks for fair use.
+    valhalla_fallback_urls: str = "https://valhalla1.openstreetmap.de"
     valhalla_timeout_s: float = 15.0
     weather_url: str = "https://api.open-meteo.com/v1/forecast"
     weather_timeout_s: float = 8.0

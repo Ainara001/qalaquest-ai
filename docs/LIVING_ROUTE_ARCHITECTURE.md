@@ -9,6 +9,8 @@
 - Walking speed follows the profile pace: slow 3.6 km/h, normal 4.8 km/h, active 6.0 km/h (Valhalla default is 5.1).
 - Example (real): Baiterek → Khan Shatyr = 2.47 km / 31 min on foot; the straight line is 1.93 km, the car route 3.2 km.
 
+Hosted fallback: `VALHALLA_FALLBACK_URLS` (default `https://valhalla1.openstreetmap.de`, the OSM/FOSSGIS public Valhalla — same API). The client tries the primary engine, skips one that failed in the last 60 s, and falls back; `GET /api/routes/status` shows which engine is active. On hosts without room for the tiles (Render free) the fallback is the only engine; it is subject to fair use, so heavy use needs an own instance. 
+
 Client: `backend/app/integrations/valhalla.py` — 15 s timeout, 30 min in-memory cache of identical requests, polyline6 decoding (verified against the reference example), errors split into `RoutingUnavailable` (engine down) and `NoRoute` (no path / no road near a point).
 
 ## Building a route (`RoutePlanningService`)
@@ -80,3 +82,9 @@ The stage 4 `PersonalizationService` and ranking feed the candidate pool unchang
 ## Verified (real Valhalla, real POIs, real Open-Meteo)
 
 Plan through 1 and 2–3 POIs; geometry on the map; per-leg and total times; visit estimates in the total; time budget respected (Khan Shatyr alone needs 93 min → refused for 90); profile changes the POIs and the pace (slow 3.6 km/h); replan after "visited" (restart from the visited place, 84 → 74 min), "25 minutes left" (honestly infeasible: the only short-visit place within reach is 1.2 km away), "less walking" (74 → 46 min, 1.6 → 0.7 km), "go indoor" (outdoor ≈7 min, the library added), new location near Mega Silk Way (stops replaced by NU Park), interests → coffee (a café added); engine stopped → straight-line mode without a drawn line; out-of-area and stale-session errors; UI flow in Kazakh and Russian on a 375 px phone.
+
+## "How to get there" with buses (`/api/routes/transit`)
+
+`TransitService` checks which known bus/tram lines have a stop near the start and, later along the same direction, a stop near the destination (stops ≤ 600 m, ≥ 2 stops of riding), walks to/from the stops via the pedestrian router, and estimates the ride (16 km/h average with dwell time). The UI shows it as a collapsible "How to get there" block under any walking leg of 1 km or more when it saves ≥ 3 minutes.
+
+**Coverage is partial and the feature says so.** OpenStreetMap has 292 bus-like route relations in Kazakhstan and none inside Astana; no official GTFS or open API exists (the AstraBus app has an undocumented endpoint that is deliberately not used). The only open data found is the research GTFS "From Raw GPS to GTFS" (Zenodo 10.5281/zenodo.15769359, CC BY 4.0, GPS data from July–September 2024) with 3 lines (10, 12, 46), stored in `backend/data/transit_snapshot.json.gz`. There is no timetable, frequency or real-time position: waiting time is not included and ride times are estimates.

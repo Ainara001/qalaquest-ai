@@ -148,8 +148,10 @@ def test_weather_failure_is_not_retried_on_every_map_refresh():
 
     import pytest
 
+    import app.services.weather as weather_module
     from app.services.weather import WeatherService, WeatherUnavailable
 
+    weather_module.MET_URL = "http://127.0.0.1:9/closed-fallback"  # the fallback provider must fail too
     w = WeatherService()
     w._url, w._timeout = "http://127.0.0.1:9/closed", 2.0  # nothing listens there
     with pytest.raises(WeatherUnavailable):
@@ -177,3 +179,28 @@ def test_accessibility_entrance_vs_path():
     assert accessibility(None, {})["entrance"] == "unknown"  # no tag → not confirmed, nothing invented
     assert accessibility("limited", {})["entrance"] == "partial"
     assert accessibility("no", {})["entrance"] == "no"
+
+
+def test_weather_falls_back_to_second_provider():
+    import asyncio
+
+    import app.services.weather as weather_module
+    from app.services.weather import WeatherService, normalize_met
+
+    met = {"properties": {"timeseries": [
+        {"time": "2026-10-18T18:00:00Z", "data": {"instant": {"details": {"air_temperature": 4.6, "apparent_air_temperature": 2.0, "wind_speed": 3.0}},
+                                                   "next_1_hours": {"summary": {"symbol_code": "lightrain_night"}, "details": {"precipitation_amount": 0.4}}}},
+        {"time": "2026-10-18T19:00:00Z", "data": {"instant": {"details": {"air_temperature": 4.0, "wind_speed": 3.5}}, "next_1_hours": {"summary": {"symbol_code": "cloudy"}, "details": {"precipitation_amount": 0.0}}}},
+    ]}, "geometry": {"coordinates": [71.43, 51.13, 347]}}
+    w = WeatherService()
+    w._url, w._timeout = "http://127.0.0.1:9/closed", 2.0
+
+    async def fake_met(client, key):
+        return normalize_met(met, *key)
+
+    w._met = fake_met
+    rep = asyncio.run(w.report(51.13, 71.43, 60))
+    assert rep.source == "met.no" and "MET Norway" in rep.attribution
+    assert rep.current.time_local == "2026-10-18T23:00"  # UTC+5 (Astana)
+    assert rep.current.temperature_c == 4.6 and rep.current.summary == "drizzle" and rep.current.gusts_ms is None
+    assert w.status()["providers"]["open-meteo"]["ok"] is False and weather_module.assess  # failure recorded, assessment still works

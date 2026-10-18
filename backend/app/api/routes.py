@@ -9,6 +9,8 @@ from app.db.session import SessionLocal
 from app.integrations.valhalla import get_valhalla
 from app.rag.embeddings import get_embedding_service
 from app.schemas.routes import PlanRequest, PlanResponse, ReplanRequest, ReplanResponse, StartPoint
+from app.schemas.transit import TransitRequest, TransitResponse
+from app.services.transit import get_transit
 from app.schemas.weather import WeatherReport
 from app.services.ai_guard import RateLimiter, deduper
 from app.services.living_route import LivingRouteService
@@ -55,7 +57,9 @@ async def _run(request: Request, key: str, factory, limiter):
 
 @router.get("/routes/status", summary="Is the pedestrian routing engine reachable?")
 async def routing_status():
-    return {"engine": "valhalla-pedestrian", "available": await get_valhalla().status()}
+    info = await get_valhalla().engines()
+    return {"engine": "valhalla-pedestrian", "available": info["available"], "active": info["active"], "engines": info["engines"],
+            "attribution": "Routing: Valhalla on © OpenStreetMap contributors data"}
 
 
 @router.post("/routes/plan", response_model=PlanResponse, summary="Plan a walk through 1–3 real POIs (real pedestrian routing)")
@@ -78,6 +82,18 @@ async def replan(req: ReplanRequest, request: Request):
     return await _run(request, key, lambda: _service().replan(req), route_limiter)
 
 
+@router.post("/routes/transit", response_model=TransitResponse, summary="Bus / tram options between two points (OSM route data, no timetable)")
+async def transit(req: TransitRequest, request: Request):
+    _check_area(StartPoint(latitude=req.start.latitude, longitude=req.start.longitude))
+    _check_area(StartPoint(latitude=req.destination.latitude, longitude=req.destination.longitude))
+    key = deduper.key("transit", _client(request), req.model_dump_json())
+    return await _run(
+        request, key,
+        lambda: get_transit().options((req.start.latitude, req.start.longitude), (req.destination.latitude, req.destination.longitude), req.max_walk_to_stop_m),
+        route_limiter,
+    )
+
+
 Lat = Annotated[float, Query(ge=-90, le=90)]
 Lon = Annotated[float, Query(ge=-180, le=180)]
 
@@ -88,6 +104,11 @@ async def _weather(request: Request, lat: float, lon: float, minutes: int) -> We
         return await get_weather().report(lat, lon, window_minutes=minutes)
     except WeatherUnavailable:
         raise HTTPException(503, "Weather data is temporarily unavailable", headers={"X-Error-Code": "weather_unavailable"}) from None
+
+
+@router.get("/weather/status", summary="Which weather providers answered last (HTTP status only, no secrets)")
+async def weather_status():
+    return get_weather().status()
 
 
 @router.get("/weather/current", response_model=WeatherReport, summary="Current weather (Open-Meteo) + walk comfort for the next hour")

@@ -1,11 +1,11 @@
-import { ArrowRight, Check, ChevronDown, Clock, Footprints, HelpCircle, MapPin, SkipForward } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, Bus, Check, ChevronDown, Clock, Footprints, HelpCircle, MapPin, SkipForward } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CategoryDot } from "@/components/explore/CategoryDot";
 import { constraintText } from "@/components/WhyPanel";
 import { formatDistance } from "@/lib/format";
 import type { Notice } from "@/services/ai";
-import type { Route, RouteChange } from "@/services/routes";
+import { getTransit, type Route, type RouteChange, type TransitResponse } from "@/services/routes";
 
 type T = (k: string, o?: Record<string, unknown>) => string;
 
@@ -38,6 +38,61 @@ export function Totals({ route, remaining }: { route: Route; remaining?: number 
   );
 }
 
+const transitCache = new Map<string, TransitResponse | null>();
+
+/** "How to get there": bus / tram lines from OpenStreetMap near both points. No timetable, no real-time data. */
+export function TransitHint({ from, to }: { from: { lat: number; lon: number }; to: { lat: number; lon: number } }) {
+  const { t } = useTranslation();
+  const key = [from.lat, from.lon, to.lat, to.lon].map((x) => x.toFixed(4)).join(",");
+  const [res, setRes] = useState<TransitResponse | null | undefined>(transitCache.get(key));
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (transitCache.has(key)) return setRes(transitCache.get(key));
+    const ctrl = new AbortController();
+    getTransit(from, to, ctrl.signal)
+      .then((r) => {
+        transitCache.set(key, r);
+        setRes(r);
+      })
+      .catch((e) => e?.name !== "AbortError" && setRes(null));
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  const opts = (res?.options ?? []).filter((o) => o.saves_minutes >= 3).slice(0, 3);
+  if (!res || opts.length === 0) return null;
+  return (
+    <div className="mt-2 rounded-xl bg-muted">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] font-medium">
+        <span className="flex items-center gap-1.5">
+          <Bus className="h-3.5 w-3.5 text-[hsl(var(--brand))]" /> {t("walk.transit.title")} · {t("walk.transit.best", { ref: opts[0].ref ?? t(`walk.transit.mode.${opts[0].mode}`), min: opts[0].total_minutes, walk: res.walk_only_minutes })}
+        </span>
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="space-y-2 border-t px-3 py-2 text-[13px]">
+          {opts.map((o) => (
+            <div key={`${o.mode}-${o.ref}-${o.board.stop_id}`} className="space-y-0.5">
+              <p className="font-semibold">
+                {t(`walk.transit.mode.${o.mode}`)} {o.ref ?? o.name ?? ""}
+              </p>
+              <p>{t("walk.transit.board", { stop: o.board.name ?? t("walk.transit.unnamedStop"), min: o.board.walk_minutes })}</p>
+              <p>{t("walk.transit.alight", { stop: o.alight.name ?? t("walk.transit.unnamedStop"), min: o.alight.walk_minutes })}</p>
+              <p className="text-muted-foreground">
+                {t("walk.transit.ride", { stops: o.stops_count, min: o.ride_minutes })} · {t("walk.transit.total", { total: o.total_minutes, walk: res.walk_only_minutes })}
+              </p>
+            </div>
+          ))}
+          <p className="text-[11px] text-muted-foreground">
+            {t("walk.transit.disclaimer", { n: res.routes_in_data })}
+            {res.walk_method === "geodesic_straight_line" && <> {t("walk.transit.walkEstimate")}</>}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function StopList({ route, onVisited, onSkip, busy }: { route: Route; onVisited?: (id: number) => void; onSkip?: (id: number) => void; busy?: boolean }) {
   const { t } = useTranslation();
   return (
@@ -61,6 +116,12 @@ export function StopList({ route, onVisited, onSkip, busy }: { route: Route; onV
                       ? t("walk.legLine", { min: Math.round(leg.walk_minutes), dist: formatDistance(leg.distance_m, t) })
                       : t("walk.legStraight", { dist: formatDistance(leg.distance_m, t) })}
                   </p>
+                )}
+                {leg && leg.distance_m >= 1000 && (
+                  <TransitHint
+                    from={i === 0 ? { lat: route.start.latitude, lon: route.start.longitude } : { lat: route.stops[i - 1].latitude, lon: route.stops[i - 1].longitude }}
+                    to={{ lat: s.latitude, lon: s.longitude }}
+                  />
                 )}
                 <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" /> {t("walk.visitEst", { n: s.visit_minutes })} · {t("walk.arrive", { n: s.arrive_after_min })}

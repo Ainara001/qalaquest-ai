@@ -2,7 +2,9 @@
 
 ## Source
 
-**Open-Meteo** forecast API (`api.open-meteo.com/v1/forecast`), no key, CC BY 4.0 (attribution shown in the UI). Requested for the user's point (or Astana centre) with `timezone=Asia/Almaty` — the response carries `utc_offset_seconds = 18000` (UTC+5, Astana's current offset) and the UI shows local times.
+**Open-Meteo** (primary) with **MET Norway** (`api.met.no` locationforecast 2.0 `complete`, CC BY 4.0, identifying User-Agent) as an automatic fallback: cloud hosts such as Render share outbound IPs that Open-Meteo throttles, which left the weather "unavailable" there. MET provides temperature, feels-like (`apparent_air_temperature`), wind speed and hourly precipitation amount, but no gusts and no precipitation probability — those stay `null` (never invented) and the comfort rules simply skip them. The answering provider is in `source` and in `GET /api/weather/status` (HTTP status per provider, no secrets). Open-Meteo details follow.
+
+(Open-Meteo) forecast API (`api.open-meteo.com/v1/forecast`), no key, CC BY 4.0 (attribution shown in the UI). Requested for the user's point (or Astana centre) with `timezone=Asia/Almaty` — the response carries `utc_offset_seconds = 18000` (UTC+5, Astana's current offset) and the UI shows local times.
 
 Fields used:
 - current: `temperature_2m`, `apparent_temperature`, `wind_speed_10m`, `wind_gusts_10m` (m/s), `precipitation`, `weather_code` (WMO → clear / partly cloudy / cloudy / fog / drizzle / rain / snow / thunderstorm);
