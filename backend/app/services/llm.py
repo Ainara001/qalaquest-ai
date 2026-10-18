@@ -36,6 +36,7 @@ class LLMService:
         self._timeout = s.gemini_timeout_s
         self._sem = asyncio.Semaphore(s.gemini_max_concurrency)
         self._thinking_budget = s.gemini_thinking_budget
+        self._fallbacks = [m.strip() for m in (s.gemini_fallback_models or "").split(",") if m.strip()]
         self._client = None
 
     @property
@@ -80,6 +81,26 @@ class LLMService:
         log.info("selected Gemini model %s", self._model)
         return self._model
 
+    async def _call(self, client, model: str, prompt: str, config):
+        last: LLMUnavailable | None = None
+        for attempt in (1, 2):
+            try:
+                return await asyncio.wait_for(
+                    client.aio.models.generate_content(model=model, contents=prompt, config=config), self._timeout + 5
+                )
+            except Exception as exc:
+                last = self._map_error(exc)
+                # log the class and HTTP code only: messages can echo request content
+                log.warning("gemini call failed: %s code=%s", type(exc).__name__, getattr(exc, "code", None))
+                if getattr(exc, "code", None) == 400 and config.thinking_config is not None:
+                    # some models (e.g. flash-lite) reject a thinking budget: retry once without it
+                    config = config.model_copy(update={"thinking_config": None})
+                    continue
+                if last.reason in ("auth", "no_model") or attempt == 2:
+                    raise last from None
+                await asyncio.sleep(1.5)
+        raise last or LLMUnavailable("upstream")  # pragma: no cover
+
     @staticmethod
     def _map_error(exc: Exception) -> LLMUnavailable:
         if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
@@ -114,24 +135,17 @@ class LLMService:
             # JSON short. Structured extraction/explanations do not need it (every answer is validated anyway).
             thinking_config=types.ThinkingConfig(thinking_budget=self._thinking_budget),
         )
-        last: LLMUnavailable | None = None
+        resp = None
         async with self._sem:
-            for attempt in (1, 2):
+            for i, name in enumerate(dict.fromkeys([model, *self._fallbacks])):
                 try:
-                    resp = await asyncio.wait_for(
-                        client.aio.models.generate_content(model=model, contents=prompt, config=config),
-                        self._timeout + 5,
-                    )
+                    resp = await self._call(client, name, prompt, config)
                     break
-                except Exception as exc:
-                    last = self._map_error(exc)
-                    # log the class and HTTP code only: messages can echo request content
-                    log.warning("gemini call failed: %s code=%s", type(exc).__name__, getattr(exc, "code", None))
-                    if last.reason in ("auth",) or attempt == 2:
-                        raise last from None
-                    await asyncio.sleep(1.5)
-            else:  # pragma: no cover
-                raise last or LLMUnavailable("upstream")
+                except LLMUnavailable as exc:
+                    # out of quota / not available for this key → the next configured model, if any
+                    if exc.reason not in ("rate_limited", "no_model") or i == len(self._fallbacks):
+                        raise
+                    log.warning("gemini model %s unavailable (%s), trying a fallback", name, exc.reason)
 
         parsed = getattr(resp, "parsed", None)
         if isinstance(parsed, schema):

@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     # Empty = discover the newest available Gemini "flash" model through the API at runtime.
     gemini_model: str | None = None
+    # comma-separated models tried in order when the main one is out of quota (429) or unavailable (404)
+    gemini_fallback_models: str | None = None
     gemini_timeout_s: float = 30.0
     gemini_max_concurrency: int = 3
     gemini_thinking_budget: int = 0  # 0 = no "thinking" tokens for structured output (faster, no truncated JSON)
