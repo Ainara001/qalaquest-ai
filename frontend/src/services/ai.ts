@@ -18,6 +18,31 @@ export interface AiParams {
   with_children?: boolean;
   interests?: Interest[];
   anchor_poi_id?: number;
+  personalization?: ReturnType<typeof import("@/stores/profile").personalizationPayload>;
+  // session-only options, moved into personalization.session by the guide store
+  allow_unconfirmed_free?: boolean;
+  company?: "solo" | "friends" | "partner" | "family";
+}
+
+export interface InterestMatch { interest: string; source: "request" | "session" | "mood" | "profile" }
+export interface Explanation {
+  personalized: boolean;
+  matched_interests: InterestMatch[];
+  matched_tags: string[];
+  favorite_category: boolean;
+  feedback: string[];
+  constraints: Notice[];
+  facts_used: string[];
+  scores: Record<"semantic" | "interest" | "location" | "time" | "budget" | "context" | "feedback" | "data" | "final", number>;
+}
+export interface PersonalizationInfo {
+  used: boolean;
+  ignored_by_request: boolean;
+  interests: InterestMatch[];
+  mood: string | null;
+  budget: string;
+  places_count: number;
+  constraints: Notice[];
 }
 
 export interface Estimate { minutes: number; basis: string }
@@ -45,6 +70,7 @@ export interface Recommendation {
   fee: "free" | "paid" | "unknown";
   source: { name: string; url: string | null; attribution: string };
   confidence: { level: "high" | "medium" | "low"; verified_fields: string[]; missing_fields: string[] };
+  explanation: Explanation;
 }
 
 export interface Notice { code: string; params: Record<string, string | number> }
@@ -59,7 +85,17 @@ export interface AiResponse {
   notices: Notice[];
   used_location: { latitude: number; longitude: number; source: "request" | "anchor_poi" | "default_city_center"; label: string | null } | null;
   explanation_unavailable: boolean;
+  personalization: PersonalizationInfo | null;
 }
+
+export interface SearchResult {
+  results: Recommendation[];
+  notices: Notice[];
+  personalization: PersonalizationInfo | null;
+}
+
+export const searchPlaces = (body: Record<string, unknown>, signal?: AbortSignal) =>
+  api<SearchResult>("/api/ai/search", { method: "POST", body: JSON.stringify(body), signal });
 
 export const sendChat = (body: AiParams & { message: string; lang: string; session_id: string }, signal?: AbortSignal) =>
   api<AiResponse>("/api/ai/chat", { method: "POST", body: JSON.stringify(body), signal });

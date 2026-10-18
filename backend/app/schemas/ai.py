@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 from app.rag.taxonomy import CategoryKey, Interest
+from app.schemas.personalization import PersonalizationInput
 
 AiLang = Literal["ru", "kk"]
 AnswerLang = Literal["ru", "kk", "en"]
@@ -29,6 +30,7 @@ class AiRequest(BaseModel):
     with_children: bool | None = None
     interests: list[Interest] | None = Field(default=None, max_length=8)  # session-only hints from the profile page
     anchor_poi_id: int | None = Field(default=None, ge=1)  # "start from this place" (from the map)
+    personalization: PersonalizationInput | None = None
 
     @field_validator("message")
     @classmethod
@@ -56,6 +58,7 @@ class SearchRequest(BaseModel):
     wheelchair: bool | None = None
     transport: Transport = "walk"
     limit: int = Field(default=10, ge=1, le=20)
+    personalization: PersonalizationInput | None = None
 
 
 # ------------------------------------------------- LLM structured outputs
@@ -78,6 +81,7 @@ class QueryIntent(BaseModel):
     with_children: bool | None = None
     wheelchair: bool | None = None
     want_alternatives: bool = False
+    ignore_preferences: bool = False
     answer_language: AnswerLang | None = None
     semantic_query: str = Field(default="", max_length=200)
 
@@ -114,13 +118,34 @@ class Estimate(BaseModel):
     basis: str  # machine-readable explanation, rendered by the UI
 
 
-class RetrievalScores(BaseModel):
+class RankingScores(BaseModel):
     semantic: float
-    keyword: float
-    affinity: float
-    proximity: float
-    data_completeness: float
+    interest: float
+    location: float
+    time: float
+    budget: float
+    context: float
+    feedback: float
+    data: float
     final: float
+
+
+class InterestMatch(BaseModel):
+    interest: str
+    source: Literal["request", "session", "mood", "profile"]
+
+
+class Explanation(BaseModel):
+    """Why this place was recommended — derived from the ranking, not written by the LLM."""
+
+    personalized: bool
+    matched_interests: list[InterestMatch]
+    matched_tags: list[str]  # real OSM tags that support a matched interest, e.g. "historic=memorial"
+    favorite_category: bool
+    feedback: list[str]  # category_liked | similar_to_liked | category_disliked | visited_before | marked_not_interested
+    constraints: list["Notice"]  # hard/soft conditions applied to the whole search
+    facts_used: list[str]  # source fields that exist for this place
+    scores: RankingScores
 
 
 class Recommendation(BaseModel):
@@ -146,7 +171,7 @@ class Recommendation(BaseModel):
     fee: Literal["free", "paid", "unknown"]  # from OSM `fee` tag only
     source: Source
     confidence: Confidence
-    scores: RetrievalScores
+    explanation: Explanation
 
 
 class Notice(BaseModel):
@@ -178,6 +203,16 @@ class SearchMeta(BaseModel):
     timings_ms: dict[str, int] = Field(default_factory=dict)
 
 
+class PersonalizationInfo(BaseModel):
+    used: bool  # persistent profile applied to this answer
+    ignored_by_request: bool  # the user asked for something different this time
+    interests: list[InterestMatch]
+    mood: str | None
+    budget: str
+    places_count: int
+    constraints: list[Notice]
+
+
 class AiResponse(BaseModel):
     status: Literal["ok", "needs_clarification", "no_results"]
     message: str | None  # AI-written intro / clarification, in the answer language
@@ -189,11 +224,15 @@ class AiResponse(BaseModel):
     used_location: UsedLocation | None = None
     explanation_unavailable: bool = False  # True when LLM text could not be validated
     meta: SearchMeta | None = None
+    personalization: PersonalizationInfo | None = None
     session_id: str | None = None
 
 
 class SearchResult(BaseModel):
     results: list[Recommendation]
+    personalization: PersonalizationInfo | None = None
     used_location: UsedLocation | None
     notices: list[Notice]
     meta: SearchMeta
+
+Explanation.model_rebuild()

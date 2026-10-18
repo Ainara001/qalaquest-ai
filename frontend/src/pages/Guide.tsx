@@ -1,15 +1,20 @@
-import { ArrowUp, MapPin, MessageSquarePlus, Sparkles, X } from "lucide-react";
+import { ArrowUp, MapPin, MessageSquarePlus, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChatMessageView, Thinking } from "@/components/ChatMessages";
 import { cn } from "@/lib/utils";
 import { useGuide } from "@/stores/guide";
+import { isConfigured, personalizationOn, useProfile } from "@/stores/profile";
 
 const MAX = 1000;
 
 export function Guide() {
   const { t } = useTranslation();
   const { messages, pending, send, clear, anchor, setAnchor } = useGuide();
+  const prof = useProfile();
+  const personalOn = personalizationOn(prof);
+  const configured = isConfigured(prof.prefs) || Object.values(prof.feedback).some((l) => l.length > 0);
   const [text, setText] = useState("");
   const [hint, setHint] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -79,6 +84,31 @@ export function Guide() {
       </div>
 
       <div className="border-t bg-card px-3 pb-3 pt-2" style={{ paddingBottom: "max(0.75rem, var(--safe-b))" }}>
+        <div className="scroll-hide mb-2 flex items-center gap-2 overflow-x-auto">
+          {configured ? (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={personalOn}
+              onClick={() => prof.setPersonalize(!personalOn)}
+              className={cn("flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium", personalOn ? "border-primary bg-accent text-accent-foreground" : "bg-background text-muted-foreground")}
+            >
+              <span className={cn("h-2 w-2 rounded-full", personalOn ? "bg-primary" : "bg-muted-foreground/40")} /> {t("guide.personalize")}
+            </button>
+          ) : (
+            <Link to="/profile" className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium text-primary">
+              <SlidersHorizontal className="h-3.5 w-3.5" /> {t("guide.personalizeSetup")}
+            </Link>
+          )}
+          {prof.mood && (
+            <span className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 text-xs font-medium text-accent-foreground">
+              {t("guide.moodChip", { mood: t(`mood.${prof.mood}`) })}
+              <button type="button" onClick={() => prof.setMood(null)} aria-label={t("common.clear")}>
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          )}
+        </div>
         {anchor && (
           <div className="mb-2 flex">
             <span className="flex max-w-full items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">

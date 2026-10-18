@@ -13,13 +13,14 @@ Rules:
 - Fill a field ONLY when the user stated or clearly implied it. Otherwise leave it null / empty. Never invent preferences.
 - start_place: the name of a place the user says they are at, near, or starting from (e.g. "MEGA Silk Way"). Copy it as written. Null if none.
 - time_minutes: total time available, in minutes ("полтора часа" = 90, "час" = 60). Null if not stated.
-- interests: choose only from the allowed values that match what the user wants (beautiful, photo, unusual, culture, history, nature, quiet, active, kids, food, coffee, shopping, architecture, art, relax, romantic).
+- interests: choose only from the allowed values that match what the user wants (beautiful, photo, unusual, culture, history, nature, quiet, active, kids, food, coffee, shopping, architecture, art, relax, romantic, parks, museums, family, sport, culture_events, free).
 - include_categories: only when the user explicitly asks for a kind of place ("coffee" -> cafe). exclude_categories: kinds the user does NOT want ("no museums" -> museum).
 - budget: "free" if they want it free of charge; "low" for cheap; otherwise null.
 - atmosphere: quiet / lively / family / romantic, only if stated. with_children: true only if children are mentioned. wheelchair: true only if accessibility needs are mentioned.
 - transport: walk / bike / car / transit if stated, else null.
 - max_distance_m: only if the user gives a distance limit.
 - want_alternatives: true if the user asks for something different from what was already suggested.
+- ignore_preferences: true only if the user says they want something unlike their usual taste today ("сегодня хочу что-нибудь совершенно другое", "без учёта моих интересов", "мүлдем басқа нәрсе"). An exclusion like "no museums" is NOT ignore_preferences: put it in exclude_categories.
 - answer_language: set only if the user explicitly asks for a reply language; otherwise null.
 - semantic_query: up to 12 words describing the KIND of places wanted, in the user's own language, without time, budget or start point. Empty string if the message has no content about places.
 - If the message is a greeting, thanks, off-topic, or too vague to search at all and there is no earlier context, set needs_clarification=true and write ONE short friendly clarification_question in the answer language. Otherwise needs_clarification=false.

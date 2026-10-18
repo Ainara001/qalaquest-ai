@@ -3,7 +3,7 @@
 **Discover Astana Your Way** — a personal AI companion for walking around Astana.
 Built for the *Build with AI* hackathon (case: NIC Smart City).
 
-> Status: **Stage 3 of 7** — AI guide (RAG + Gemini), mobile-first light UI.
+> Status: **Stage 4 of 7** — personal AI: guest profile, moods, feedback learning, personal ranking.
 > See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
 ## Stack
@@ -115,6 +115,13 @@ Re-run it after every POI import (or import with `--index`); unchanged places ar
 Details: [docs/RAG_ARCHITECTURE.md](docs/RAG_ARCHITECTURE.md). Mobile UI: [docs/MOBILE_UI.md](docs/MOBILE_UI.md).
 Limits: 12 AI requests / minute / IP (`AI_RATE_LIMIT_PER_MIN`), messages ≤ 1000 characters. Distances are straight-line, never presented as walking routes.
 
+## Personalization (guest profile)
+
+- **Profile** tab: interests (16), walking habits (duration, max distance, pace, indoor/outdoor, number of places), budget, accessibility, favourite / avoided categories, saved / visited / hidden places, privacy controls. **Home**: mood of the day and "places you may like". **AI guide**: switch "Use my preferences", mood chip, feedback on every card and "Why is this recommended to me?".
+- Stored only in this browser and only after the user allows it; sent with AI requests and validated by the backend (`personalization` field of `/api/ai/search | recommend | chat`; unknown fields → 422).
+- Ranking weights: `backend/app/core/ranking.py`, optional override `RANKING_WEIGHTS='{"interest":0.3}'`.
+- Details: [docs/PERSONALIZATION_ARCHITECTURE.md](docs/PERSONALIZATION_ARCHITECTURE.md).
+
 ## Localisation (RU / KK)
 
 - UI: `i18next` with `frontend/src/i18n/locales/ru.json` and `kk.json`. Russian is the default; the choice is stored in `localStorage` (`qq-lang`) and switching does not reload the page or reset the map.
@@ -171,5 +178,5 @@ npm run dev        # http://localhost:5173
 backend/    FastAPI app (api, core, db, models, schemas, services, rag, integrations) + Alembic
 frontend/   React app (components, pages, layouts, hooks, services, stores, styles)
 db/         Dockerfile for PostgreSQL + PostGIS + pgvector
-docs/       PROJECT_STATUS.md, POI_DATA_PIPELINE.md, RAG_ARCHITECTURE.md, MOBILE_UI.md
+docs/       PROJECT_STATUS.md, POI_DATA_PIPELINE.md, RAG_ARCHITECTURE.md, MOBILE_UI.md, PERSONALIZATION_ARCHITECTURE.md
 ```

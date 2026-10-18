@@ -1,13 +1,15 @@
-import { ChevronRight, MapPin, Sparkles } from "lucide-react";
+import { ChevronRight, MapPin, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { CategoryDot } from "@/components/explore/CategoryDot";
+import { MOOD_ICONS } from "@/components/icons";
 import { getPosition } from "@/services/geo";
 import { fetchPois, type PoiItem } from "@/services/pois";
-import type { AiParams } from "@/services/ai";
+import { searchPlaces, type AiParams, type Recommendation } from "@/services/ai";
 import { useExplore } from "@/stores/explore";
 import { useGuide } from "@/stores/guide";
+import { isConfigured, MOODS, personalizationOn, personalizationPayload, useProfile } from "@/stores/profile";
 import { cn } from "@/lib/utils";
 
 const QUICK: { key: "nearby" | "min30" | "free" | "kids" | "unusual" | "quiet"; params?: AiParams }[] = [
@@ -37,6 +39,31 @@ export function Home() {
   const [busy, setBusy] = useState<string | null>(null);
   const [places, setPlaces] = useState<{ items: PoiItem[]; total: number } | null>(null);
   const [placesError, setPlacesError] = useState(false);
+  const prof = useProfile();
+  const personal = personalizationOn(prof) && (isConfigured(prof.prefs) || Object.values(prof.feedback).some((l) => l.length));
+  const [forYou, setForYou] = useState<Recommendation[] | null>(null);
+  const [forYouError, setForYouError] = useState(false);
+
+  // personal picks come from the real ranking endpoint (retrieval + personal scoring, no LLM)
+  useEffect(() => {
+    if (!personal) return;
+    const ctrl = new AbortController();
+    setForYou(null);
+    setForYouError(false);
+    searchPlaces(
+      {
+        lang: document.documentElement.lang || "ru",
+        radius_m: 3000,
+        limit: 6,
+        ...(origin ? { location: { latitude: origin.lat, longitude: origin.lon } } : {}),
+        personalization: personalizationPayload(),
+      },
+      ctrl.signal,
+    )
+      .then((r) => setForYou(r.results))
+      .catch((e) => e?.name !== "AbortError" && setForYouError(true));
+    return () => ctrl.abort();
+  }, [personal, prof.prefs, prof.feedback, origin?.lat, origin?.lon, t]);
 
   useEffect(() => {
     const q = { categories: FEATURED, search: "", origin: origin ? { lat: origin.lat, lon: origin.lon } : null, radiusKm: 5 };
@@ -130,6 +157,87 @@ export function Home() {
           </div>
         </div>
       </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-xl font-bold">{t("home.moodTitle")}</h2>
+          <p className="text-sm text-muted-foreground">{t("home.moodSub")}</p>
+        </div>
+        <div className="scroll-hide -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:px-0">
+          {MOODS.map((m) => {
+            const Icon = MOOD_ICONS[m];
+            return (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={prof.mood === m}
+                onClick={() => {
+                  prof.setMood(m);
+                  ask(t("home.moodMessage"));
+                }}
+                className={cn(
+                  "flex h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium shadow-sm transition active:scale-95",
+                  prof.mood === m ? "border-primary bg-accent text-accent-foreground" : "bg-card",
+                )}
+              >
+                <Icon className="h-4 w-4 text-[hsl(var(--brand))]" /> {t(`mood.${m}`)}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {personal ? (
+        <section className="space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-bold">{t("home.forYouTitle")}</h2>
+              <p className="text-sm text-muted-foreground">{t("home.forYouSub")}</p>
+            </div>
+            <button type="button" onClick={() => ask(t("home.pickForMeMessage"))} className="h-11 shrink-0 self-start rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground sm:self-auto">
+              {t("home.pickForMe")}
+            </button>
+          </div>
+          {forYouError ? (
+            <p className="text-sm text-muted-foreground">{t("home.placesError")}</p>
+          ) : !forYou ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />)}</div>
+          ) : forYou.length === 0 ? (
+            <p className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">{t("home.forYouEmpty")}</p>
+          ) : (
+            <div className="scroll-hide -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3">
+              {forYou.map((r) => (
+                <Link
+                  key={r.poi_id}
+                  to="/map"
+                  onClick={() => useExplore.getState().select(r.poi_id)}
+                  className="w-[75%] shrink-0 snap-start rounded-2xl border bg-card p-4 shadow-sm active:bg-muted sm:w-auto"
+                >
+                  <p className="line-clamp-2 font-semibold leading-snug">{r.name ?? t("explore.unnamed")}</p>
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CategoryDot category={r.category} /> {t(`categorySingular.${r.category}`)}
+                  </p>
+                  {r.explanation.matched_interests.length > 0 && (
+                    <p className="mt-2 line-clamp-2 text-xs text-accent-foreground">
+                      {t("home.because", { list: r.explanation.matched_interests.map((m) => t(`interest.${m.interest}`, { defaultValue: m.interest })).join(", ") })}
+                    </p>
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="rounded-2xl border bg-card p-5 shadow-sm">
+          <h2 className="flex items-center gap-2 text-lg font-bold">
+            <SlidersHorizontal className="h-5 w-5 text-[hsl(var(--brand))]" /> {t("home.setupTitle")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("home.setupText")}</p>
+          <Link to="/profile" className="mt-3 inline-flex h-10 items-center rounded-xl border px-4 text-sm font-semibold text-primary">
+            {t("home.setupButton")}
+          </Link>
+        </section>
+      )}
 
       <section className="space-y-3">
         <div className="flex items-end justify-between">

@@ -1,0 +1,16 @@
+import {
+  Baby, Bike, Building2, Camera, Coffee, Compass, Drama, Dumbbell, Feather, Footprints, Gift, Landmark, Leaf,
+  Lightbulb, Palette, ScrollText, Sofa, Trees, Users, UtensilsCrossed, WandSparkles, type LucideIcon,
+} from "lucide-react";
+import type { Mood, ProfileInterest } from "@/stores/profile";
+
+export const INTEREST_ICONS: Record<ProfileInterest, LucideIcon> = {
+  architecture: Landmark, history: ScrollText, art: Palette, nature: Leaf, parks: Trees, photo: Camera,
+  coffee: Coffee, food: UtensilsCrossed, museums: Building2, unusual: WandSparkles, family: Baby, sport: Dumbbell,
+  quiet: Feather, active: Footprints, culture_events: Drama, free: Gift,
+};
+
+export const MOOD_ICONS: Record<Mood, LucideIcon> = {
+  relax: Sofa, adventure: Compass, inspiration: Lightbulb, unusual: WandSparkles, active: Bike, quiet: Feather,
+  photo: Camera, family: Users, just_walk: Footprints,
+};

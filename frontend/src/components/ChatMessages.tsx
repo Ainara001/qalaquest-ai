@@ -12,6 +12,10 @@ function noticeText(n: Notice, t: (k: string, o?: Record<string, unknown>) => st
   switch (n.code) {
     case "no_results":
       return t("guide.notices.no_results", { radius: p.radius_m, wider: p.wider_radius_m, count: p.wider_count });
+    case "no_confirmed_free":
+      return t("guide.notices.no_confirmed_free", { radius: p.radius_m, count: p.count });
+    case "no_accessible":
+      return t("guide.notices.no_accessible");
     case "anchor_resolved":
     case "anchor_not_found":
     case "time_too_short":
@@ -95,6 +99,19 @@ export function ChatMessageView({ msg }: { msg: ChatMessage }) {
           </p>
         ) : null;
       })}
+      {r.notices.some((n) => n.code === "no_confirmed_free") && msg.retry && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={pending}
+          onClick={() => send(t("guide.unconfirmedFreeMessage"), { ...msg.retry!.params, allow_unconfirmed_free: true })}
+        >
+          {t("guide.showUnconfirmedFree")}
+        </Button>
+      )}
+      {r.personalization?.ignored_by_request && (
+        <p className="max-w-[92%] rounded-xl bg-muted px-3 py-2 text-[13px] text-muted-foreground">{t("guide.constraints.profile_ignored")}</p>
+      )}
       {recs.length > 0 && (
         <div className="space-y-3">
           {recs.map((rec, i) => (

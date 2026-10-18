@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
 import { ApiError } from "@/services/api";
-import { resetChat, sendChat, type AiParams, type AiResponse, type Interest } from "@/services/ai";
+import { resetChat, sendChat, type AiParams, type AiResponse } from "@/services/ai";
+import { personalizationPayload } from "@/stores/profile";
 import { useExplore } from "@/stores/explore";
 
 export interface ChatMessage {
@@ -20,10 +21,8 @@ interface GuideState {
   messages: ChatMessage[];
   sessionId: string;
   pending: boolean;
-  interests: Interest[]; // session-only hints; long-term profile arrives in stage 4
   anchor: { id: number; name: string | null } | null;
   setAnchor: (a: GuideState["anchor"]) => void;
-  toggleInterest: (i: Interest) => void;
   send: (message: string, params?: AiParams) => Promise<void>;
   clear: () => void;
 }
@@ -34,22 +33,28 @@ export const useGuide = create<GuideState>((set, get) => ({
   messages: [],
   sessionId: newSessionId(),
   pending: false,
-  interests: [],
   anchor: null,
   setAnchor: (anchor) => set({ anchor }),
-  toggleInterest: (i) => set((s) => ({ interests: s.interests.includes(i) ? s.interests.filter((x) => x !== i) : [...s.interests, i] })),
 
   send: async (raw, extra = {}) => {
     const message = raw.trim();
-    const { pending, sessionId, interests, anchor } = get();
+    const { pending, sessionId, anchor } = get();
     if (!message || pending) return; // empty input and double taps do nothing
     const origin = useExplore.getState().origin;
     const params: AiParams = {
       ...(origin && !anchor ? { location: { latitude: origin.lat, longitude: origin.lon } } : {}),
       ...(anchor ? { anchor_poi_id: anchor.id } : {}),
-      ...(interests.length ? { interests } : {}),
       ...extra,
     };
+    // persistent profile (if allowed) + today's mood + one-off session options
+    const { allow_unconfirmed_free, company, ...rest } = extra;
+    Object.assign(params, rest);
+    params.personalization = personalizationPayload({
+      ...(allow_unconfirmed_free ? { allow_unconfirmed_free } : {}),
+      ...(company ? { company } : {}),
+    });
+    delete (params as Record<string, unknown>).allow_unconfirmed_free;
+    delete (params as Record<string, unknown>).company;
     set((s) => ({ pending: true, messages: [...s.messages, { id: uid(), role: "user", text: message }] }));
     controller?.abort();
     controller = new AbortController();

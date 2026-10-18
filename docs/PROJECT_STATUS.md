@@ -1,6 +1,6 @@
 # QalaQuest AI — Project status
 
-_Last updated: 2026-10-18 (stage 3)_
+_Last updated: 2026-10-18 (stage 4)_
 
 ## Stages
 
@@ -9,7 +9,8 @@ _Last updated: 2026-10-18 (stage 3)_
 | 1 | Architecture, infrastructure, UI shell | **Done** |
 | 2 | Real POIs of Astana, interactive map, RU/KK UI | **Done** (see "Known issues") |
 | 3 | RAG + AI, mobile-first light UI | **Done except one item**: real Gemini calls were not verified (no API key available) |
-| 4–7 | Personalization, Living Route, Quest, Weather, Group Harmony, Surprise Me, English UI | Not started |
+| 4 | Personal AI: profile, moods, feedback, personal ranking | **Done**; real Gemini still unverified (no key) |
+| 5–7 | Living Route, Quest, Weather, Group Harmony, Surprise Me, English UI | Not started |
 
 ## Stage 3 plan (written before implementation, 2026-10-18)
 
@@ -80,9 +81,31 @@ FastAPI skeleton (settings, CORS, JSON logs, unified error format, Swagger at `/
 - The Gemini model name is discovered at runtime, so a different model may be selected over time; pin it with `GEMINI_MODEL` for reproducibility.
 - Single-process rate limiter and session store (fine for a demo, needs Redis for several workers).
 
-## Next: stage 4
+### Stage 4 — actual results
 
-Long-term personalization (profile storage, learning from preferences) — not started. Session-only interests (Profile page) and typed `Interest` values are already wired through the API and can be reused.
+**Audit before work:** stages 1–3 intact, git clean, no `GEMINI_API_KEY` configured (unchanged), 1030 POIs indexed. No critical RAG defects found; one ranking detail was reworked (keyword rank folded into the semantic score).
+
+**Implemented**
+- Backend: `schemas/personalization.py` (`UserPreferences`, `SessionPreferences`, `FeedbackSummary`, `PersonalizationInput`, strict validation), `services/personalization.py` (`PersonalizationService`: priority merge, taste vector, transparent feedback model), rewritten `rag/retrieval.py` (8 explainable scores, configurable weights in `core/ranking.py`, multipliers, relevance floor, diversity), `Explanation` / `PersonalizationInfo` in responses, profile-aware LLM prompt (`why` per candidate, `USER_PROFILE`, `MAX_PICKS`), `ignore_preferences` in query understanding, strict-free logic with an explicit "show unconfirmed" path, `/api/ai/search` reused for personal home picks (own 60/min limit, no LLM), dedupe keys over the full request.
+- Frontend: `stores/profile.ts` (guest profile, opt-in `localStorage`, session mood, feedback with mutually exclusive actions), new Profile page, Home mood row + "places you may like" / setup card, Guide personalization switch + mood chip, feedback chips + bottom sheet, "Why is this recommended to me?" panel, notices for no confirmed free / no accessible places. RU/KK for everything new (key sets identical).
+- Docs: [PERSONALIZATION_ARCHITECTURE.md](PERSONALIZATION_ARCHITECTURE.md), README, MOBILE_UI.
+
+**Verified**
+- Scenarios A–F on real POIs through `/api/ai/search` (deterministic ranking): A and B differ (2 of 5 overlap) and both differ from the baseline; C museums excluded only when asked; D "never" honoured (also with personalization off); E switch off = baseline; F Kazakh names and labels. Feedback learning is gradual (1 like → 0.57, 3 more-like → 0.93 feedback score). Strict free, unconfirmed free, budget, wheelchair, pace + max distance + family, mood.
+- Chat path (understanding → personal retrieval → generation → validation) for C via text, "something completely different" (`profile_ignored`), E, F (Kazakh answer), `places_count=1`, strict free — against the local Gemini stand-in.
+- Validation: unknown fields (client weights), unknown interests, bad budget, non-integer ids, `places_count` > 3 → 422; valid payload → 200.
+- UI (in-app browser, 375 px and 320 px): profile edit, opt-in saving, persistence after reload, RU → KK keeps the profile, personal home picks with reasons, chat cards with the why panel in Kazakh, "never" from the bottom sheet removes the place from the next answer, no horizontal overflow on Home / Map / Guide / Profile at 320 px; frontend production build passes.
+
+**Not verified / known issues**
+- Real Gemini answers (personal reasons in natural language) — no API key; only the stand-in was used.
+- Physical phones / real keyboards not tested (emulation only).
+- Price and accessibility data are sparse, so those filters can return very little (reported to the user).
+- Heuristic affinities and tag rules have no offline evaluation; the feedback model is a simple transparent rule, not learned.
+- Profile is per device (no sync); the server keeps no profile.
+
+## Next: stage 5
+
+Not started (Living Route / route building). Waiting for the next prompt.
 
 ## Architecture decisions
 

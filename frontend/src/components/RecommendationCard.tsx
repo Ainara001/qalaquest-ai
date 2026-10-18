@@ -1,6 +1,8 @@
 import { ExternalLink, Map as MapIcon, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CategoryDot } from "@/components/explore/CategoryDot";
+import { FeedbackBar } from "@/components/FeedbackBar";
+import { WhyPanel } from "@/components/WhyPanel";
 import { Button } from "@/components/ui/button";
 import { formatDistance } from "@/lib/format";
 import type { Recommendation } from "@/services/ai";
@@ -55,6 +57,9 @@ export function RecommendationCard({ rec, index, onMap }: { rec: Recommendation;
           {rec.address && <li>{rec.address}</li>}
           {rec.wheelchair && <li>{t("guide.card.wheelchair", { v: t(`poi.wheelchairValues.${rec.wheelchair}`, { defaultValue: rec.wheelchair }) })}</li>}
         </ul>
+
+        <WhyPanel rec={rec} />
+        <FeedbackBar poiId={rec.poi_id} name={rec.name} category={rec.category} />
       </div>
 
       <footer className="flex items-center justify-between gap-2 border-t bg-muted/50 px-4 py-2.5">

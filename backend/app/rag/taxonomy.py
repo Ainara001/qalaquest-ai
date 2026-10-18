@@ -17,7 +17,30 @@ assert set(get_args(CategoryKey)) == set(CATEGORIES), "CategoryKey is out of syn
 Interest = Literal[
     "beautiful", "photo", "unusual", "culture", "history", "nature", "quiet", "active", "kids",
     "food", "coffee", "shopping", "architecture", "art", "relax", "romantic",
+    # profile interests added in stage 4
+    "parks", "museums", "family", "sport", "culture_events", "free",
 ]
+
+# The 16 interests a user can pick in the profile (subset of Interest).
+ProfileInterest = Literal[
+    "architecture", "history", "art", "nature", "parks", "photo", "coffee", "food", "museums",
+    "unusual", "family", "sport", "quiet", "active", "culture_events", "free",
+]
+
+Mood = Literal["relax", "adventure", "inspiration", "unusual", "active", "quiet", "photo", "family", "just_walk"]
+
+# A mood is a temporary set of weighted interests for the current walk only.
+MOOD_INTERESTS: dict[str, dict[str, float]] = {
+    "relax": {"relax": 1, "parks": 0.8, "quiet": 0.6, "coffee": 0.5},
+    "adventure": {"unusual": 1, "active": 0.7, "beautiful": 0.5},
+    "inspiration": {"art": 1, "architecture": 0.8, "culture": 0.7},
+    "unusual": {"unusual": 1, "art": 0.5},
+    "active": {"active": 1, "sport": 0.8, "parks": 0.5},
+    "quiet": {"quiet": 1, "parks": 0.7},
+    "photo": {"photo": 1, "beautiful": 0.8, "architecture": 0.6},
+    "family": {"family": 1, "parks": 0.6},
+    "just_walk": {"parks": 0.8, "beautiful": 0.6},
+}
 
 # interest -> category -> weight (0..1)
 AFFINITY: dict[str, dict[str, float]] = {
@@ -37,7 +60,59 @@ AFFINITY: dict[str, dict[str, float]] = {
     "art": {"gallery": 1, "museum": 0.8, "theatre": 0.7, "monument": 0.6},
     "relax": {"park": 1, "promenade": 0.8, "cafe": 0.6, "public_space": 0.5, "library": 0.4},
     "romantic": {"viewpoint": 0.9, "promenade": 0.8, "park": 0.7, "cafe": 0.6, "restaurant": 0.6, "architecture": 0.5},
+    "parks": {"park": 1, "promenade": 0.7, "public_space": 0.4},
+    "museums": {"museum": 1, "gallery": 0.6},
+    "family": {"playground": 1, "park": 0.8, "attraction": 0.6, "museum": 0.4, "mall": 0.3},
+    "sport": {"sports": 1, "park": 0.4},
+    "culture_events": {"theatre": 1, "gallery": 0.7, "museum": 0.5, "library": 0.4},
+    "free": {"park": 0.6, "public_space": 0.6, "monument": 0.6, "promenade": 0.6, "viewpoint": 0.6, "architecture": 0.5},
 }
+
+# Real OSM tags that support an interest (a match is shown in "why recommended" as a fact).
+INTEREST_TAGS: dict[str, list[tuple[str, tuple[str, ...] | None]]] = {
+    "architecture": [("architect", None), ("building:architecture", None), ("heritage", None), ("building", ("cathedral", "mosque", "church", "temple", "synagogue"))],
+    "history": [("historic", None), ("heritage", None), ("memorial", None)],
+    "art": [("artwork_type", None), ("artist_name", None), ("tourism", ("artwork", "gallery"))],
+    "nature": [("natural", None), ("leisure", ("park", "garden", "nature_reserve"))],
+    "photo": [("tourism", ("viewpoint", "artwork"))],
+    "coffee": [("cuisine", ("coffee_shop",))],
+    "food": [("cuisine", None)],
+    "museums": [("tourism", ("museum",))],
+    "family": [("leisure", ("playground",)), ("kids_area", ("yes",)), ("changing_table", ("yes",))],
+    "kids": [("leisure", ("playground",)), ("kids_area", ("yes",))],
+    "sport": [("sport", None)],
+    "active": [("sport", None)],
+    "culture_events": [("amenity", ("theatre", "arts_centre"))],
+    "free": [("fee", ("no",))],
+}
+
+# Short multilingual descriptions; their embeddings form the semantic "taste" vector of a profile.
+INTEREST_PHRASES: dict[str, str] = {
+    "architecture": "architecture, notable buildings / архитектура, здания / сәулет, ғимараттар",
+    "history": "history, monuments, memorials / история, памятники / тарих, ескерткіштер",
+    "art": "art, sculpture, gallery / искусство, скульптура, галерея / өнер, мүсін",
+    "nature": "nature, greenery, trees / природа, зелень / табиғат, жасыл аймақ",
+    "parks": "park, garden, square / парк, сквер / саябақ",
+    "photo": "scenic photo spot, view / красивое место для фото / суретке түсетін әдемі жер",
+    "coffee": "coffee shop / кофейня / кофехана",
+    "food": "restaurant, local food / ресторан, еда / мейрамхана, тағам",
+    "museums": "museum, exhibition / музей, выставка / мұражай, көрме",
+    "unusual": "unusual, unique place / необычное место / ерекше орын",
+    "family": "family, children, playground / семья, дети, детская площадка / отбасы, балалар",
+    "sport": "sport, stadium, active / спорт, стадион / спорт",
+    "quiet": "quiet calm place / тихое спокойное место / тыныш орын",
+    "active": "active walk, sport / активная прогулка / белсенді серуен",
+    "culture_events": "theatre, concert, culture / театр, концерт, культура / театр, мәдениет",
+    "free": "public space, free access / общественное пространство / қоғамдық кеңістік",
+}
+
+# Category-level heuristics for indoor/outdoor preference (about the category, not the place).
+INDOOR_CATEGORIES = {"museum", "theatre", "library", "gallery", "mall", "cafe", "restaurant"}
+OUTDOOR_CATEGORIES = {"park", "monument", "viewpoint", "public_space", "promenade", "playground", "architecture"}
+
+PACE_SPEED_M_PER_MIN = {"slow": 60, "normal": 80, "active": 100}
+# Soft budget fit for categories where people usually pay; no prices exist in the data.
+BUDGET_COMMERCIAL_FIT = {"2000": 0.3, "5000": 0.6, "10000": 0.8, "any": 1.0}
 
 # Used when the user states no interest at all ("Where should I go?"): sightseeing first.
 DEFAULT_AFFINITY: dict[str, float] = {

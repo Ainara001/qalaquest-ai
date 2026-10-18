@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     embedding_model: str = "intfloat/multilingual-e5-large"
     embedding_dim: int = 1024
     embedding_cache_dir: str | None = None
+    ranking_weights: str | None = None  # JSON override of app.core.ranking.DEFAULT_WEIGHTS
 
     @property
     def cors_origin_list(self) -> list[str]:
