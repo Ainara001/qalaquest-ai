@@ -2,7 +2,9 @@ import { api } from "./api";
 
 export type Interest =
   | "beautiful" | "photo" | "unusual" | "culture" | "history" | "nature" | "quiet" | "active"
-  | "kids" | "food" | "coffee" | "shopping" | "architecture" | "art" | "relax" | "romantic";
+  | "kids" | "food" | "coffee" | "shopping" | "architecture" | "art" | "relax" | "romantic"
+  // profile interests (stage 4), accepted by the same backend field
+  | "parks" | "museums" | "family" | "sport" | "culture_events" | "free";
 export const INTERESTS: Interest[] = [
   "beautiful", "photo", "unusual", "culture", "history", "nature", "quiet", "active",
   "kids", "food", "coffee", "shopping", "architecture", "art", "relax", "romantic",
@@ -33,7 +35,7 @@ export interface Explanation {
   feedback: string[];
   constraints: Notice[];
   facts_used: string[];
-  scores: Record<"semantic" | "interest" | "location" | "time" | "budget" | "context" | "feedback" | "data" | "final", number>;
+  scores: Record<"semantic" | "interest" | "location" | "time" | "budget" | "context" | "feedback" | "data" | "weather" | "final", number>;
 }
 export interface PersonalizationInfo {
   used: boolean;

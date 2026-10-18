@@ -58,5 +58,5 @@ A full run takes about 5–15 minutes because requests are sequential, 3 s apart
 - Cafés and restaurants in OSM are those mapped by volunteers; the list is not a complete business directory.
 - `playground` objects are mostly unnamed; the UI labels them by category.
 - Public Overpass servers have no SLA and may rate-limit. Use `OVERPASS_URLS` to point to your own instance for heavy use.
-- Distances shown to users are straight-line geodesic distances (PostGIS `ST_Distance` on `geography`), not walking routes.
+- Distances in the POI list, cards and AI answers are straight-line geodesic distances (PostGIS `ST_Distance` on `geography`), not walking routes. Walking routes come from the pedestrian router (Valhalla, stage 5) and are always labelled as such.
 - Map tiles come from OpenFreeMap, a free public service without an SLA; for production, self-host tiles or use a paid provider.

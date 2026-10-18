@@ -1,0 +1,8 @@
+# Keep LF in the repository and in shell scripts on every OS.
+# Without this, Windows clones with core.autocrlf=true turn routing/prepare.sh into CRLF
+# and bash fails with "$'\r': command not found".
+* text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

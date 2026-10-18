@@ -32,6 +32,8 @@ SATURATION = 4.0
 MIN_POSITIVE_FOR_VECTOR = 2  # a "taste" vector needs at least two positive signals
 
 SOURCE_WEIGHT = {"request": 1.0, "session": 0.9, "mood": 0.9, "profile": 0.7}
+# "lively" has no honest interest equivalent in our taxonomy, so it is not mapped
+ATMOSPHERE_INTEREST = {"quiet": "quiet", "romantic": "romantic", "family": "family"}
 
 
 @dataclass
@@ -225,8 +227,9 @@ class PersonalizationService:
                 add(i, w, "mood")
         for i in (prof.interests if prof else []):
             add(i, 1.0, "profile")
-        if intent.atmosphere == "quiet":
-            add("quiet", 1.0, "request")
+        # an atmosphere stated in the text is a request-level interest (a ranking preference, not a fact about places)
+        if intent.atmosphere in ATMOSPHERE_INTEREST:
+            add(ATMOSPHERE_INTEREST[intent.atmosphere], 1.0, "request")
         # a soft interest whose main category the user excluded today does not count as a match
         for i in [i for i, (_, src) in ctx.interests.items() if src != "request"]:
             aff = AFFINITY.get(i, {})

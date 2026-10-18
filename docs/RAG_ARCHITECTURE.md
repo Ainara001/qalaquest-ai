@@ -43,13 +43,16 @@ UI parameters (location, time, radius, free, with children, profile interests, a
 
 Priority: POI chosen on the map > place named in the text (fuzzy match with `pg_trgm` + `ILIKE` against all name variants; e.g. "MEGA Silk Way" → the real `Mega Silk Way` object) > device / manual location > city centre (Baiterek) with a visible notice. An unknown named place without any location triggers a clarification (`anchor_not_found`). The anchor itself is never recommended.
 
-Distances are PostGIS geodesic **straight-line** distances (`distance_method = geodesic_straight_line`). There is no pedestrian router yet, so a "travel estimate" is only `distance × 1.3 / speed` (walk 80 m/min), flagged `straight_line_x1.3_walk` and worded in the UI as a rough estimate, not a route.
+Distances are PostGIS geodesic **straight-line** distances (`distance_method = geodesic_straight_line`). In the AI cards the "travel estimate" is only `distance × 1.3 / speed` (walk 80 m/min), flagged `straight_line_x1.3_walk` and worded in the UI as a rough estimate, not a route. Real pedestrian routes (Valhalla) exist since stage 5 and are used by `/api/routes/*` — see [LIVING_ROUTE_ARCHITECTURE.md](LIVING_ROUTE_ARCHITECTURE.md).
 
 ## Retrieval and filtering (`app/rag/retrieval.py`)
 
 Hard constraints are applied in SQL before any ranking: radius (`ST_DWithin`), included / excluded categories, `fee=yes` excluded when the user wants free, wheelchair `yes/designated` when requested, already shown places when asking for alternatives, named objects only (unnamed playgrounds only for children). The time budget is a hard filter too: walking estimate + half of the typical visit must fit in the available time. The radius comes from the smallest of: user radius, stated distance, and a time-derived radius (≈35 % of the time budget for getting there, 5–45 min).
 
-Scoring over every row that passed the filters (about a thousand POIs, so similarities are computed exactly; the HNSW index is in place for larger data):
+Scoring over every row that passed the filters (about a thousand POIs, so similarities are computed exactly; the HNSW index is in place for larger data).
+
+> **Superseded in stage 4.** The table below is the original stage 3 scoring. The current ranking uses nine explainable scores (semantic, interest, location, time, budget, context, feedback, data, weather) with the weights in `backend/app/core/ranking.py`; see [PERSONALIZATION_ARCHITECTURE.md](PERSONALIZATION_ARCHITECTURE.md) and [WEATHER_INTEGRATION.md](WEATHER_INTEGRATION.md). The table is kept for history.
+
 
 | signal | weight | source |
 |---|---|---|
