@@ -3,8 +3,10 @@
 **Discover Astana Your Way** — a personal AI companion for walking around Astana.
 Built for the *Build with AI* hackathon (case: NIC Smart City).
 
-> Status: **Stage 5 of 7** — Living Route (real pedestrian routing, live re-planning) + Astana Weather Mode.
-> See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
+> Status: **Stage 6 of 7** — map-first redesign, mood-aware map, AI Quest, Group Harmony, Surprise Me
+> (on top of stage 5: Living Route + Astana Weather Mode). See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md);
+> the stage 6 audit, plan and file-by-file change log are in [docs/STAGE6_AUDIT_AND_PLAN.md](docs/STAGE6_AUDIT_AND_PLAN.md)
+> and [docs/STAGE6_CHANGELOG.md](docs/STAGE6_CHANGELOG.md).
 
 ## Stack
 
@@ -92,6 +94,7 @@ Interactive docs: http://localhost:8000/api/docs. All list endpoints accept `lan
 | `GET /api/pois/categories` | Categories with counts |
 | `GET /api/pois/stats` | Totals, per-category counts, last successful update, sources |
 | `GET /api/pois/map` | Compact GeoJSON of all matching POIs (same filters, up to 10 000) |
+| `GET /api/pois/suggest` | Search box: `q` (name, any language, typos tolerated), optional `latitude`/`longitude`, `limit` ≤ 20 — ranked exact → prefix → substring → trigram-similar names + matching categories; never calls the LLM |
 
 `distance_m` is the **straight-line geodesic distance on the WGS84 spheroid** (PostGIS `ST_Distance` on `geography`), reported with `distance_method`. It is not a walking route.
 Importer control is CLI-only; there is no HTTP endpoint that can change data.
@@ -107,13 +110,18 @@ docker compose exec backend python -m app.scripts.index_pois
 
 Re-run it after every POI import (or import with `--index`); unchanged places are skipped.
 
-3. Open the **AI guide** tab (or type on Home) and write, for example: *"Я возле MEGA Silk Way. У меня 60 минут, люблю красивые места и хочу погулять бесплатно"*.
+3. Type a request into the search field on the map (or open the **AI guide** tab) and write, for example: *"Я возле MEGA Silk Way. У меня 60 минут, люблю красивые места и хочу погулять бесплатно"*.
 
 | Endpoint | Description |
 |----------|-------------|
 | `POST /api/ai/search` | Retrieval only (no LLM): ranked real POIs with score breakdown |
 | `POST /api/ai/recommend` | One-shot recommendations (1–3 cards with reasons) |
 | `POST /api/ai/chat` | Same with in-session context (`session_id`); `DELETE /api/ai/chat/{session_id}` forgets it |
+| `POST /api/ai/surprise` | Surprise me: one relevant real place that is new for this user (stage 6) |
+| `POST /api/ai/quests/generate` | AI Quest: 2–5 tasks around real POIs on a real walking route (stage 6) |
+| `POST /api/ai/groups/recommend` | Group Harmony: one walk for 2–5 people with an explained compromise (stage 6) |
+
+`/api/ai/search`, `/recommend` and `/chat` accept `use_weather=true` (stage 6): the Open-Meteo assessment of the start point is added to the ranking and every card says whether the mood, the weather or the user's interests put it there (`explanation.mood`, `explanation.weather_fit`, `matched_interests[].source`).
 | `GET /api/ai/status` | LLM configured? model, embedding readiness, indexed POI count |
 
 Details: [docs/RAG_ARCHITECTURE.md](docs/RAG_ARCHITECTURE.md). Mobile UI: [docs/MOBILE_UI.md](docs/MOBILE_UI.md).
@@ -128,10 +136,17 @@ Limits: 12 AI requests / minute / IP (`AI_RATE_LIMIT_PER_MIN`), messages ≤ 100
 
 ## Living Route and weather
 
-- `/walk` (opened from Home, the AI guide "Start a walk with these places", a map card "Walk here", or the active-walk bar): plan 1–3 places for a time budget, start, then mark places as visited, skip, or change the route (time left, less walking, go indoors, interests, another place, free text to AI, update location / weather). Each change calls the backend and shows what changed and why.
+- On the map (stage 6; `/walk` redirects there): **Route** on a place card, **Build a walk** from "Places for you", **Start a walk with these places** in an AI answer, or a group walk. Plan 1–3 places for a time budget, start, then mark places as visited, skip, or change the route (time left, less walking, go indoors, interests, another place, free text to AI, update location / weather). Each change calls the backend and is shown as a **proposal** (what changes and why, drawn on the map); the walk changes only after **Apply**.
 - API: `POST /api/routes/plan`, `POST /api/routes/replan`, `GET /api/routes/status`, `GET /api/weather/current`, `GET /api/weather/forecast`.
 - External services: Valhalla (self-hosted), Open-Meteo (no key), OpenFreeMap tiles, Gemini (optional, only for free-text changes and summaries).
 - Details: [docs/LIVING_ROUTE_ARCHITECTURE.md](docs/LIVING_ROUTE_ARCHITECTURE.md), [docs/WEATHER_INTEGRATION.md](docs/WEATHER_INTEGRATION.md).
+
+## Stage 6: map first, mood, quests, groups, surprise
+
+- **Map = main screen**, three tabs (Map, AI guide, Profile). Search field "Find a place or ask the AI…": place names go to `/api/pois/suggest` (no AI), requests in words go to the AI guide. Quick filters with values (mood, near, time, budget, categories, filters). Details: [docs/MAP_FIRST_UX.md](docs/MAP_FIRST_UX.md).
+- **Mood-aware map**: 9 moods in one tap; the "Places for you" layer (`/api/ai/search`, no LLM) re-ranks real POIs for mood + weather + profile + time + budget and explains each place by source. The same context is used by the AI guide and Living Route.
+- **Surprise Me, AI Quest, Group Harmony**: quick actions on the map. Algorithms and limits: [docs/ADVANCED_AI_FEATURES.md](docs/ADVANCED_AI_FEATURES.md).
+- Unit tests of the new algorithms (no database needed): `cd backend && pip install -r requirements-dev.txt && pytest`.
 
 ## Localisation (RU / KK)
 
@@ -190,6 +205,8 @@ backend/    FastAPI app (api, core, db, models, schemas, services, rag, integrat
 frontend/   React app (components, pages, layouts, hooks, services, stores, styles)
 db/         Dockerfile for PostgreSQL + PostGIS + pgvector
 docs/       PROJECT_STATUS.md, POI_DATA_PIPELINE.md, RAG_ARCHITECTURE.md, MOBILE_UI.md, PERSONALIZATION_ARCHITECTURE.md,
-            LIVING_ROUTE_ARCHITECTURE.md, WEATHER_INTEGRATION.md
+            LIVING_ROUTE_ARCHITECTURE.md, WEATHER_INTEGRATION.md, MAP_FIRST_UX.md, ADVANCED_AI_FEATURES.md,
+            STAGE6_AUDIT_AND_PLAN.md, STAGE6_CHANGELOG.md
+backend/tests/  unit tests of the stage 6 algorithms (pytest, no database)
 routing/    prepare.sh (OSM extract download); data/ is git-ignored
 ```

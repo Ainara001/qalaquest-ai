@@ -17,6 +17,7 @@ from app.schemas.weather import WeatherAssessment, WeatherHour, WeatherNow, Weat
 log = logging.getLogger("weather")
 ASTANA = (51.1282, 71.4304)
 STALE_MAX_S = 3600  # serve cached data up to 1 h old if a refresh fails (flagged as stale)
+RETRY_AFTER_FAILURE_S = 60  # after a failed call, answer "unavailable" at once for a minute instead of waiting again
 
 
 class WeatherUnavailable(Exception):
@@ -87,6 +88,7 @@ class WeatherService:
         s = get_settings()
         self._url, self._timeout, self._ttl = s.weather_url, s.weather_timeout_s, s.weather_cache_s
         self._cache: dict[tuple[float, float], tuple[float, dict, datetime]] = {}
+        self._failed_at: dict[tuple[float, float], float] = {}
         self._lock = asyncio.Lock()
 
     async def _raw(self, lat: float, lon: float) -> tuple[dict, datetime, bool]:
@@ -96,6 +98,11 @@ class WeatherService:
         hit = self._cache.get(key)
         if hit and now - hit[0] < self._ttl:
             return hit[1], hit[2], False
+        # the map asks for weather on every context change: after a failure, do not block each request on a timeout
+        if now - self._failed_at.get(key, -RETRY_AFTER_FAILURE_S) < RETRY_AFTER_FAILURE_S:
+            if hit and now - hit[0] < STALE_MAX_S:
+                return hit[1], hit[2], True
+            raise WeatherUnavailable()
         params = {
             "latitude": key[0], "longitude": key[1], "timezone": "Asia/Almaty", "wind_speed_unit": "ms", "forecast_hours": 12,
             "current": "temperature_2m,apparent_temperature,wind_speed_10m,wind_gusts_10m,precipitation,weather_code",
@@ -115,6 +122,7 @@ class WeatherService:
                 raise ValueError("no current block")
         except (httpx.HTTPError, ValueError) as exc:
             log.warning("open-meteo failed: %s", type(exc).__name__)
+            self._failed_at[key] = now
             if hit and now - hit[0] < STALE_MAX_S:
                 return hit[1], hit[2], True
             raise WeatherUnavailable() from None

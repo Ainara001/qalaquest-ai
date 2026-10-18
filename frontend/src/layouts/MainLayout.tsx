@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Footprints } from "lucide-react";
 import { useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -83,7 +84,9 @@ export function MainLayout() {
           !full && "pb-nav md:pb-8",
         )}
       >
-        <Outlet />
+        <ErrorBoundary resetKey={pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
 
       {!full && <footer className="hidden border-t py-6 text-center text-sm text-muted-foreground md:block">{t("footer.text")}</footer>}

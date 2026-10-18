@@ -87,7 +87,8 @@ export function MapView(props: Props) {
     if (!map || !map.getSource("pois")) return;
     const p = live.current;
     (map.getSource("pois") as GeoJSONSource | undefined)?.setData(p.points ?? EMPTY);
-    map.setFilter("poi-selected", ["==", ["get", "id"], p.selected?.id ?? -1]);
+    // clusters have no "id": coalesce keeps the comparison numeric (avoids "expected number, found null")
+    map.setFilter("poi-selected", ["==", ["coalesce", ["get", "id"], -2], p.selected?.id ?? -1]);
     (map.getSource("ai") as GeoJSONSource | undefined)?.setData({
       type: "FeatureCollection",
       features: p.aiPicks.map((a) => ({ type: "Feature", properties: { id: a.id, n: String(a.n) }, geometry: { type: "Point", coordinates: [a.lon, a.lat] } })),
@@ -142,16 +143,17 @@ export function MapView(props: Props) {
     map.addSource("pois", { type: "geojson", data: EMPTY, cluster: true, clusterRadius: 50, clusterMaxZoom: 14 });
     map.addLayer({
       id: "poi-clusters", type: "circle", source: "pois", filter: ["has", "point_count"],
+      // white "count" bubbles, so they never look like the teal numbered "rank" pins of recommendations
       paint: {
-        "circle-color": ["step", ["get", "point_count"], "#64748b", 25, "#475569", 100, "#334155"],
-        "circle-radius": ["step", ["get", "point_count"], 15, 25, 19, 100, 24],
-        "circle-stroke-width": 3, "circle-stroke-color": "#ffffff",
+        "circle-color": "#ffffff",
+        "circle-radius": ["step", ["get", "point_count"], 14, 25, 18, 100, 23],
+        "circle-stroke-width": 2, "circle-stroke-color": "#94a3b8",
       },
     });
     map.addLayer({
       id: "poi-cluster-count", type: "symbol", source: "pois", filter: ["has", "point_count"],
       layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 12 },
-      paint: { "text-color": "#ffffff" },
+      paint: { "text-color": "#334155" },
     });
     map.addLayer({
       id: "poi-points", type: "circle", source: "pois", filter: ["!", ["has", "point_count"]],
@@ -166,7 +168,7 @@ export function MapView(props: Props) {
       layout: { "icon-image": ["concat", "cat-", ["get", "category"]], "icon-size": 0.5, "icon-allow-overlap": true, "icon-ignore-placement": true },
     });
     map.addLayer({
-      id: "poi-selected", type: "circle", source: "pois", filter: ["==", ["get", "id"], -1],
+      id: "poi-selected", type: "circle", source: "pois", filter: ["==", ["coalesce", ["get", "id"], -2], -1],
       paint: { "circle-radius": 15, "circle-color": "rgba(0,0,0,0)", "circle-stroke-width": 3, "circle-stroke-color": "#f59e0b" },
     });
 

@@ -8,4 +8,6 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
   server: { host: true, port: 5173 },
+  // MapLibre (~800 kB) in its own chunk: app updates do not invalidate the cached map library
+  build: { rollupOptions: { output: { manualChunks: { maplibre: ["maplibre-gl"] } } }, chunkSizeWarningLimit: 900 },
 });

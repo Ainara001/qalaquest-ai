@@ -1,8 +1,10 @@
-# Mobile-first UI (stage 3)
+# Mobile-first UI (stage 3, updated in stage 6)
+
+> **Stage 6 changed the structure:** the map is the main screen and the navigation has **three** tabs (Map `/`, AI guide `/guide`, Profile `/profile`); Home was removed and `/walk` opens on the map. The current behaviour of the map screen, search, filters, mood and sheets is described in [MAP_FIRST_UX.md](MAP_FIRST_UX.md). The sections below are kept for the parts that did not change (viewport and keyboard handling, design system, AI guide, Profile) and for history.
 
 ## Navigation
 
-Four primary destinations, one source of truth (`frontend/src/sections.ts`):
+Stage 6: three primary destinations (`frontend/src/sections.ts`): Map `/` (Карта / Карта), AI guide `/guide` (AI-гид / AI-гид), Profile `/profile` (Профиль / Профиль). The stage 3 table below is historical:
 
 | Tab | Route | Icon | RU | KK |
 |---|---|---|---|---|
@@ -54,3 +56,10 @@ All new strings exist in `ru.json` and `kk.json` (same key set, checked by scrip
 - **Active-walk bar** under the header on every other page ("Walk · places: 2 · 40 min left · Open route"); full-height pages subtract its height (`--pill-h`) so nothing is covered.
 - **Weather card** on Home (temperature, feels-like, wind, gusts, precipitation probability, update time, comfort advice) and in the walk sheet.
 - Location is requested only on a tap; the remaining-time counter updates once a minute locally, without polling the server or the GPS.
+
+## Stage 6 changes (summary)
+
+- Three tabs; the bottom bar is a 3-column grid with 12 px labels. On phones the map screen has no header: the search field sits at the top with `env(safe-area-inset-top)` (`--safe-t`), and `.page-h` uses `--header-eff` (0 on the map screen on phones).
+- One map sheet (`components/map/MapSheet.tsx`, collapsed / half / full, drag only on the handle) replaces the fixed-height place sheet, the list sheet and the walk sheet (`RouteSheet` was removed).
+- Quick actions (Surprise me, Quest, For a group) float above the sheet on phones and sit in the side panel on desktop; map buttons (weather, recommendation layer, my location) float on the right.
+- Checked for horizontal overflow at 320 / 375 / 390 / 430 px in emulation (no physical devices).

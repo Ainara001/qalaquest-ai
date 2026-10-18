@@ -21,8 +21,8 @@ from app.schemas.ai import (
     AiRequest, AiResponse, Confidence, Estimate, Explanation, InterestMatch, LLMRecommendations, Notice, QueryIntent,
     RankingScores, Recommendation, SearchMeta, SearchRequest, SearchResult, Source, UsedLocation,
 )
-from app.services.personalization import PersonalContext, PersonalizationService
 from app.schemas.weather import WeatherAssessment
+from app.services.personalization import PersonalContext, PersonalizationService
 from app.services.ai_guard import Session
 from app.services.anchor import find_anchor
 from app.services.context import assess_weather

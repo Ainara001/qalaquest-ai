@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useExplore } from "@/stores/explore";
 
 /**
  * What the map screen shows. Exactly one panel lives in the bottom sheet (phones) / side panel (desktop) at a time,
@@ -36,6 +37,8 @@ export const useMapUi = create<MapUiState>((set, get) => ({
   // one level of history: "back" returns to the panel this one was opened from (e.g. place card → list or walk)
   open: (panel, sheet = "half") => {
     const cur = get().panel;
+    // leaving the place card clears the selection, so tapping the same marker later opens it again
+    if (panel !== "place" && useExplore.getState().selectedId !== null) useExplore.getState().select(null);
     set({ panel, sheet, previous: cur === panel ? get().previous : cur });
   },
   back: () => set((s) => ({ panel: s.previous === s.panel ? "results" : s.previous, previous: "results", sheet: "half" })),

@@ -90,6 +90,14 @@ Missing hours → "working hours unknown", never "open now". Every card carries 
 
 `POST /api/ai/{search,recommend,chat}`: input limits (message ≤ 1000 characters, time 5–600 min, radius 100–20000 m, enums for categories / interests), per-IP limit (`AI_RATE_LIMIT_PER_MIN`, default 12/min → `429` + `Retry-After`), identical requests in flight or within 8 s share one result (double tap = one Gemini call; verified: 3 parallel identical requests → 1 understanding + 1 generation call), logs contain only language, message length, counts and timings (verified: no message text or coordinates in the logs).
 
+## Stage 6 additions
+
+- **Weather in recommendations.** `use_weather` on `/api/ai/search | recommend | chat` adds the Open-Meteo assessment of the start point to the existing `weather` score; the answer returns the assessment, and the prompt gets a `WEATHER` line with the rule that shelter or weather details not in it must never be claimed.
+- **Explained by source.** `explanation.mood` and `explanation.weather_fit` (`indoor_in_adverse_weather` / `outdoor_in_good_weather`, category-level) next to `matched_interests[].source` let the UI say what came from the mood, the weather and the user's interests. The prompt now also says that a mood is a wish, not a property of a place (never "quiet", "romantic", "uncrowded").
+- **Atmosphere from the text** (`romantic`, `family`, `quiet`) ranks as a request interest (before, only `quiet` had an effect). Time stated in the message now beats the time of the walk context.
+- **Shared context.** `RecommendationContext` + `services/context.py` (start point, weather, PersonalContext) are used by the map layer, Surprise Me, AI Quest and Group Harmony; all of them call the same `retrieve` — no second recommendation mechanism. See [ADVANCED_AI_FEATURES.md](ADVANCED_AI_FEATURES.md).
+- **Name search without the LLM.** `GET /api/pois/suggest` ranks exact, prefix, substring and pg_trgm-similar names (`similarity` / `word_similarity` ≥ 0.3), so ordinary lookups in the map search never cost a Gemini call.
+
 ## Verification status
 
 - Verified with the real stack: embedding model, index (1030 / 0 failed, re-run skips all), retrieval in ru / kk / en, filters, time and radius logic, validation errors, rate limit, double submit, privacy of logs, error mapping against the real Gemini endpoint with an invalid key (`ai_auth`).

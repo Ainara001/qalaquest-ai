@@ -15,7 +15,7 @@ import { SearchBar, SearchPanel } from "@/components/map/Search";
 import { SurpriseHeader, SurprisePanel } from "@/components/map/SurprisePanel";
 import { ActiveWalkPanel, PlanWalkPanel, RoutePreviewPanel, WalkHeader } from "@/components/walk/WalkPanels";
 import { useLocate } from "@/hooks/useLocate";
-import { useMapPoints, usePoiQuery } from "@/hooks/usePois";
+import { useMapPoints, usePoiDetail, usePoiQuery } from "@/hooks/usePois";
 import { cn } from "@/lib/utils";
 import { useWalkContext } from "@/stores/context";
 import { useExplore, type AiPick } from "@/stores/explore";
@@ -65,6 +65,8 @@ export function MapHome() {
   const groupResult = useGroup((g) => g.result);
   const query = usePoiQuery();
   const points = useMapPoints(query);
+  // coordinates of the selected place when it is not among the drawn points (shared, cached request)
+  const detail = usePoiDetail(ex.selectedId, ex.origin ? { lat: ex.origin.lat, lon: ex.origin.lon } : null);
   const locate = useLocate();
   const root = useRef<HTMLDivElement>(null);
   const [params, setParams] = useSearchParams();
@@ -154,8 +156,10 @@ export function MapHome() {
     const r = recs.results.find((x) => x.poi_id === ex.selectedId) ?? null;
     if (r) return { id: r.poi_id, lat: r.latitude, lon: r.longitude };
     const a = pins.find((x) => x.id === ex.selectedId);
-    return a ? { id: a.id, lat: a.lat, lon: a.lon } : null;
-  }, [ex.selectedId, points.data, recs.results, pins]);
+    if (a) return { id: a.id, lat: a.lat, lon: a.lon };
+    const d = detail.data;
+    return d && d.id === ex.selectedId ? { id: d.id, lat: d.latitude, lon: d.longitude } : null;
+  }, [ex.selectedId, points.data, recs.results, pins, detail.data]);
 
   const h = root.current?.clientHeight ?? window.innerHeight;
   const sheetPx = SHEET_PX[ui.sheet](h);

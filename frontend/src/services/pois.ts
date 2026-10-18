@@ -84,13 +84,25 @@ export const fetchPois = (q: PoiQuery, lang: string, offset: number, limit: numb
 export const fetchMapPoints = (q: PoiQuery, lang: string, signal?: AbortSignal) =>
   api<PoiFeatureCollection>(`/api/pois/map?${qs(q, lang)}`, { signal });
 
-export const fetchPoi = (id: number, lang: string, origin: PoiQuery["origin"], signal?: AbortSignal) => {
+// Place details are read by several parts of the place card at once: share one request and keep it for a minute.
+const detailCache = new Map<string, { at: number; value: Promise<PoiDetail> }>();
+const DETAIL_TTL_MS = 60_000;
+
+export const fetchPoi = (id: number, lang: string, origin: PoiQuery["origin"], signal?: AbortSignal): Promise<PoiDetail> => {
   const p = new URLSearchParams({ lang });
   if (origin) {
     p.set("latitude", String(origin.lat));
     p.set("longitude", String(origin.lon));
   }
-  return api<PoiDetail>(`/api/pois/${id}?${p}`, { signal });
+  const url = `/api/pois/${id}?${p}`;
+  const hit = detailCache.get(url);
+  if (hit && Date.now() - hit.at < DETAIL_TTL_MS) return hit.value;
+  // not tied to one caller's AbortSignal: another component may still be waiting for the same answer
+  const value = api<PoiDetail>(url);
+  value.catch(() => detailCache.delete(url));
+  detailCache.set(url, { at: Date.now(), value });
+  if (detailCache.size > 100) detailCache.delete(detailCache.keys().next().value!);
+  return signal ? Promise.race([value, new Promise<never>((_, rej) => signal.addEventListener("abort", () => rej(new DOMException("Aborted", "AbortError")), { once: true }))]) : value;
 };
 
 export interface SuggestItem extends PoiItem {

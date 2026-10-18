@@ -140,3 +140,24 @@
 | edit | `frontend/src/services/advanced.ts`, `i18n/locales/*.json` | Типы и строки RU/KK (`Топпен серуендеу`); общий текст уведомления о старте из центра |
 
 Проверено: алгоритм на примере из ТЗ (A — архитектура и фото, B — кофейни и спокойный отдых, C — музеи и история) → набор «архитектура + парк + памятник», каждый участник покрыт; в браузере на тестовом API с настоящими сервисами — три участника, честный компромисс («Болату рядом почти нечего предложить», «время — по самому короткому: 90 мин»), уровни «подходит / мало подходящего», переход к маршруту.
+
+## Фаза 8 — `stage6/08-docs-verification`
+
+| Действие | Файл | Что сделано |
+|---|---|---|
+| create | `backend/tests/__init__.py`, `conftest.py`, `test_stage6.py` | 17 модульных тестов без БД/сети/ключа: настроения, приоритеты контекста, атмосфера запроса, «Удиви меня» (новизна, выбор, причины), квесты (привязка к POI, факты OSM, число заданий), группа (пример из ТЗ, критерий минимальной удовлетворённости, общие ограничения), быстрый отказ погоды |
+| create | `backend/pytest.ini`, `backend/requirements-dev.txt` | Запуск: `pip install -r requirements-dev.txt && pytest` |
+| create | `frontend/src/components/ErrorBoundary.tsx` | Сбой одного экрана → сообщение «Перезагрузить», а не пустая страница |
+| create | `docs/MAP_FIRST_UX.md` | Навигация, пользовательские пути, карта, поиск, Mood-Aware Map, листы, синхронизация контекста, мобильная адаптация |
+| create | `docs/ADVANCED_AI_FEATURES.md` | `RecommendationContext`, Surprise Me, AI Quest, Group Harmony: алгоритмы, реальные POI, ограничения, статус проверки |
+| edit | `backend/app/services/weather.py` | После сбоя Open-Meteo минуту отвечает «недоступно» сразу (слой карты не ждёт таймаут при каждом изменении фильтров) |
+| edit | `backend/app/services/recommendation.py` | Порядок импортов |
+| edit | `frontend/src/services/pois.ts` | Один общий запрос деталей места на минуту (карточка больше не делает два одинаковых запроса) |
+| edit | `frontend/src/components/map/MapView.tsx` | Белые кластеры (не путаются с номерными пинами рекомендаций); фильтр выделения без предупреждения MapLibre «expected number, found null» |
+| edit | `frontend/src/stores/mapui.ts`, `pages/MapHome.tsx` | Уход с карточки снимает выделение (повторное нажатие на ту же метку снова открывает её); карта подлетает к месту, даже если его нет среди нарисованных точек |
+| edit | `frontend/src/layouts/MainLayout.tsx` | Error boundary вокруг страниц |
+| edit | `frontend/vite.config.ts` | MapLibre в отдельном чанке (кэш не сбрасывается при обновлении кода приложения) |
+| edit | `frontend/src/i18n/locales/ru.json`, `kk.json` | Тексты ошибки экрана (811 ключей, наборы идентичны) |
+| edit | `README.md`, `docs/PROJECT_STATUS.md`, `docs/MOBILE_UI.md`, `docs/RAG_ARCHITECTURE.md`, `docs/STAGE6_AUDIT_AND_PLAN.md` | Статус этапа 6, новые эндпоинты, 3 вкладки, дополнения RAG, честный список непроверенного |
+
+Проверено: `pytest` — 17 passed; `npm run build` проходит; ширины 320/390/430 px без горизонтального скролла на карте и во всех новых панелях; desktop 1280 px; казахский интерфейс новых панелей без «сырых» ключей.

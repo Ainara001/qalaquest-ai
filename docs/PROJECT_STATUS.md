@@ -1,6 +1,6 @@
 # QalaQuest AI — Project status
 
-_Last updated: 2026-10-18 (stage 5)_
+_Last updated: 2026-10-18 (stage 6)_
 
 ## Stages
 
@@ -11,7 +11,8 @@ _Last updated: 2026-10-18 (stage 5)_
 | 3 | RAG + AI, mobile-first light UI | **Done except one item**: real Gemini calls were not verified (no API key available) |
 | 4 | Personal AI: profile, moods, feedback, personal ranking | **Done**; real Gemini still unverified (no key) |
 | 5 | Living Route (real pedestrian routing, re-planning) + Astana Weather Mode | **Done**; Gemini-dependent parts (free-text route changes, route summaries) unverified with the real API (no key) |
-| 6–7 | Quest, Group Harmony, Surprise Me, English UI, presentation | Not started |
+| 6 | Map-first UX, Mood-Aware Map, AI Quest, Group Harmony, Surprise Me | **Implemented** in branches `stage6/01…08` (not merged into `main`); verified with unit tests and in the browser against a scratch API that runs the real services on synthetic rows — **not yet run against the real database, Valhalla or Gemini** (see "Stage 6") |
+| 7 | English UI, presentation | Not started |
 
 ## Stage 3 plan (written before implementation, 2026-10-18)
 
@@ -132,9 +133,44 @@ FastAPI skeleton (settings, CORS, JSON logs, unified error format, Swagger at `/
 - Sparse short-visit POIs near some points make short walks infeasible (reported honestly).
 - Routing data is a snapshot of the OSM extract; refresh by re-running `prepare.sh` and deleting `routing/data/valhalla_tiles*`.
 
-## Next: stage 6
+## Stage 6 — plan and actual results
 
-Not started. Waiting for the next prompt.
+**Audit before work** ([STAGE6_AUDIT_AND_PLAN.md](STAGE6_AUDIT_AND_PLAN.md)): stages 1–5 intact, local copy identical to `origin/main`, stage 6 not started. Found: moods not matching the spec, no weather in recommendations, reasons not separated by source, `atmosphere` from the text ignored (except quiet), name search sorted alphabetically, stale walk mood overriding the map, re-plans applied without confirmation, session time beating the time stated in the chat, duplicated "router unavailable" notice, dishonest re-plan reasons, outdated statements in RAG/pipeline docs, no `.gitattributes` (CRLF breaks `prepare.sh` on Windows). All fixed in the phases below. File-by-file log: [STAGE6_CHANGELOG.md](STAGE6_CHANGELOG.md).
+
+**Environment of this stage:** Windows machine **without Docker, PostgreSQL/PostGIS, the POI data, Valhalla or a Gemini key**. Therefore: backend code was checked by imports, SQL compilation for PostgreSQL, unit tests, and a scratch API (outside the repository) that runs the real ranking, card, route-planning, Living Route, Surprise, Quest and Group code on synthetic rows labelled "[тест]"; the UI was checked in the in-app browser against that scratch API.
+
+**Implemented** (branches, each created from the previous one)
+1. `stage6/01-audit-fixes` — audit and plan, `.gitattributes`, doc fixes, atmosphere → request interest, type fixes.
+2. `stage6/02-recommendation-context` — `RecommendationContext` + shared helpers; stage 6 moods (romantic, learn); `use_weather` in `/api/ai/search|recommend|chat`; `explanation.mood` / `weather_fit`; `GET /api/pois/suggest` (pg_trgm, no LLM).
+3. `stage6/03-map-first-ui` — map as the start screen, 3 tabs, unified search with automatic place-name / AI detection, quick filter chips with values, one-tap mood sheet, "Places for you" layer (top 1–3 pins + ring layer, regular POIs faded, toggleable), reasons by source, place card with 3 sheet states and quick route, walk / plan / route preview on the map, shared walk-context store, AI wishes synced into the map, category icons and lighter clusters, RU/KK.
+4. `stage6/04-living-route-sync` — re-plans as proposals (Apply / Keep current), current context in every plan/replan, "mood changed — suggest a route?", honest `ranked_lower` / `matched_mood` reasons.
+5. `stage6/05-surprise-me` — `SurpriseRecommendationService`, `POST /api/ai/surprise`, card with "show on map" / "another option".
+6. `stage6/06-ai-quest` — `QuestGenerationService`, `POST /api/ai/quests/generate`, 6 quest types, 2–5 tasks bound to POI ids on a real route, client-held progress (pending/active/completed/skipped).
+7. `stage6/07-group-harmony` — `GroupRecommendationService`, `POST /api/ai/groups/recommend`, per-member normalised fit, least-satisfied objective, explained compromise.
+8. `stage6/08-docs-verification` — unit tests (`backend/tests`, 17), weather fail-fast for the map, shared place-detail request, error boundary, MapLibre in its own chunk, docs ([MAP_FIRST_UX.md](MAP_FIRST_UX.md), [ADVANCED_AI_FEATURES.md](ADVANCED_AI_FEATURES.md), README, MOBILE_UI, RAG_ARCHITECTURE, this file).
+
+**Verified (this machine)**
+- `npm run build` (tsc + vite) passes; RU/KK key sets identical (811 keys each), no raw keys on screen; `pytest`: 17 passed.
+- Scenario 1 (mood): "Beautiful photos" → architecture / monuments / public spaces; "Calm rest" → parks / promenades / café, reasons by source; with "very cold" weather a romantic mood moves a café and a restaurant up with "because of the weather".
+- Scenario 2 (quick search): typing a name → ranked suggestions → place card in one tap → **Route** → route preview with time and distance; a request in words → AI path (without a key: clear `ai_not_configured` message with retry).
+- Scenario 3 (AI Quest): photo hunt / city secrets created from candidate POIs, honest notices when few places fit, start → active task → done → next; quest stops and bar on the map.
+- Scenario 4 (Group Harmony): the spec's three members (architecture+photo / coffee+calm / museums+history) → algorithm picks architecture + park + monument with everyone covered (unit test); in the UI an honest compromise with the shortest time and an uncovered member named.
+- Scenario 5 (Surprise Me): six "another option" taps → six different places of different categories, reasons, estimates, "new for you ≠ little-known".
+- Scenario 6 (Living Route): walk started from "Places for you", mood changed on the map → banner and bar hint → proposal with the diff, current walk unchanged → Apply → walk and its mood updated.
+- No horizontal overflow at 320, 375, 390, 430 px (map and every new panel); desktop layout at 1280 px; language switch keeps mood, place card, walk, quest and group.
+
+**Not verified / known issues**
+- **Nothing in stage 6 has been run against the real PostgreSQL/PostGIS database with the 1030 real POIs, the real e5 embeddings, Valhalla or Gemini.** The new SQL (`/api/pois/suggest`) was compiled for the PostgreSQL dialect but never executed. To verify: `docker compose up -d --build`, import + index POIs (README), open http://localhost:5173 and repeat scenarios 1–6; Swagger shows the new endpoints.
+- Real Gemini wording for quests / surprise ideas / chat is unverified (no key); without a key the templates and category ideas are used, labelled as such.
+- Physical phones, real GPS and on-screen keyboards not tested (emulation only). In the in-app browser the map canvas does not repaint while the pane is hidden (environment artefact; a forced redraw showed all layers).
+- The place-name / AI-request detection is a heuristic; the other option is always offered in the search panel.
+- Group fit and Surprise novelty are category- and tag-level calculations (documented), not judgements about specific places; OSM data stays sparse (prices, accessibility, hours).
+- Branches are not merged into `main`; `main` was not touched.
+- `ghcr.io/valhalla/valhalla-scripted:latest` is still unpinned (reproducibility; not changed because the matching tag could not be checked here).
+
+## Next: stage 7
+
+Not started (by the stage 6 instructions). Before stage 7: merge `stage6/08-docs-verification` into `main` after a review and run the real-stack verification above.
 
 ## Architecture decisions
 
