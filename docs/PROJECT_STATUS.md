@@ -200,7 +200,7 @@ Not started (by the stage 6 instructions). Before stage 7: merge `stage6/08-docs
 - Overpass and OpenFreeMap are public services without an SLA; the importer needs internet access.
 - Map labels fall back to the original name where tiles lack `name:kk`/`name:ru`.
 - Kazakh UI text was written by hand and has not been reviewed by a native speaker.
-- Mobile bottom sheet changes height by tapping the handle (no drag gesture).
+- ~~Mobile bottom sheet changes height by tapping the handle (no drag gesture).~~ Stage 6: the map sheet has three snap states with a drag gesture on the handle.
 - Geolocation success path could not be exercised in the test browser (permission is denied there); only the denied path was tested. The same code sets the origin as manual picking does, which was tested.
 - Not tested on a physical phone, Safari or Firefox. No automated tests (by design). `npm audit` not reviewed.
 - The importer is not scheduled; refresh is manual.

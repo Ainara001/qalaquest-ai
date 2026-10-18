@@ -1,4 +1,5 @@
-import { CloudSun, Footprints, Heart, Info, MapPin, MessageCircle, RefreshCw, Smile, Sparkles, ThumbsUp, User, X } from "lucide-react";
+import { CloudSun, Footprints, Heart, Info, MapPin, MessageCircle, RefreshCw, Route, Smile, Sparkles, ThumbsUp, User, X } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { ChatMessageView, Thinking } from "@/components/ChatMessages";
@@ -109,6 +110,12 @@ export function ResultsHeader() {
           {(recs.status === "loading" || (showAi && aiPending)) && <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" aria-label={t("common.loading")} />}
         </h2>
         {showAi ? <p className="text-xs text-muted-foreground">{t("recs.aiSub")}</p> : <ContextLine />}
+        {!showAi && ui.sheet === "collapsed" && recs.results[0] && (
+          <button type="button" onClick={() => useExplore.getState().select(recs.results[0].poi_id)} className="mt-1 flex max-w-full items-center gap-1.5 text-left text-sm">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">1</span>
+            <span className="truncate font-medium">{recs.results[0].name ?? t("explore.unnamed")}</span>
+          </button>
+        )}
       </div>
       {showAi && (
         <button type="button" onClick={() => { ui.setShowAiAnswer(false); useExplore.getState().setAiPicks([]); }} aria-label={t("recs.hideAi")} className="flex h-9 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium">
@@ -133,6 +140,42 @@ function AiAnswer() {
       <Link to="/guide" className="inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-sm font-semibold text-primary">
         <MessageCircle className="h-4 w-4" /> {t("recs.openGuide")}
       </Link>
+    </div>
+  );
+}
+
+const TIP_KEY = "qq-tip-mood-v1";
+function tipSeen(): boolean {
+  try {
+    return localStorage.getItem(TIP_KEY) === "1";
+  } catch {
+    return true;
+  }
+}
+
+/** One-time hint (per device) that the mood changes the map; disappears once a mood is chosen or it is closed. */
+function MoodTip() {
+  const { t } = useTranslation();
+  const mood = useWalkContext((c) => c.mood);
+  const ui = useMapUi();
+  const [hidden, setHidden] = useState(tipSeen);
+  if (hidden || mood) return null;
+  const close = () => {
+    try {
+      localStorage.setItem(TIP_KEY, "1");
+    } catch {
+      /* storage unavailable: hide for this visit only */
+    }
+    setHidden(true);
+  };
+  return (
+    <div className="flex items-start gap-2 rounded-2xl border border-primary/30 bg-accent/60 p-3 text-[13px]">
+      <Smile className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--brand))]" />
+      <p className="min-w-0 flex-1">
+        {t("recs.tip")}{" "}
+        <button type="button" onClick={() => { close(); ui.setPicker("mood"); }} className="font-semibold text-primary underline underline-offset-2">{t("recs.tipAction")}</button>
+      </p>
+      <button type="button" onClick={close} aria-label={t("common.close")} className="shrink-0 text-muted-foreground"><X className="h-4 w-4" /></button>
     </div>
   );
 }
@@ -171,6 +214,7 @@ export function ResultsPanel({ query }: { query: ReturnType<typeof usePoiQuery> 
   return (
     <div className="space-y-3">
       {tabs}
+      <MoodTip />
       {notices.length > 0 && (
         <ul className="space-y-1.5">
           {[...new Set(notices)].map((x) => <li key={x} className="flex items-start gap-2 rounded-xl bg-muted px-3 py-2 text-[13px] text-muted-foreground"><Info className="mt-0.5 h-4 w-4 shrink-0" /> {x}</li>)}
@@ -201,6 +245,9 @@ export function ResultsPanel({ query }: { query: ReturnType<typeof usePoiQuery> 
           </ul>
           <button type="button" disabled={walk.pending} onClick={planTop} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50">
             <Footprints className="h-4 w-4" /> {t("recs.planTop", { n: Math.min(TOP_PINS, recs.results.length) })}
+          </button>
+          <button type="button" onClick={() => ui.open("plan", "half")} className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border text-sm font-semibold">
+            <Route className="h-4 w-4" /> {t("walk.planTitle")}
           </button>
           <p className="text-[11px] text-muted-foreground">{t("recs.disclaimer")}</p>
         </>
